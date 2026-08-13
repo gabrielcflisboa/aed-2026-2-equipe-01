@@ -2,15 +2,15 @@
 
 ## Integrantes
 
-| Nome completo | Matrícula |
-|---|---|
-| Gabriel Campos Ferreira Lisboa (líder) | `255696` |
-| Maria Luísa Lacerda | `1418550` |
-| `<nome completo>` | `<matrícula>` |
-| `<nome completo>` | `<matrícula>` |
-| `<nome completo>` | `<matrícula>` |
-| `<nome completo>` | `<matrícula>` |
-| `<nome completo>` | `<matrícula>` |
+| Nome completo                          | Matrícula     |
+|----------------------------------------|---------------|
+| Gabriel Campos Ferreira Lisboa (líder) | `255696`      |
+| Maria Luísa Lacerda                    | `1418550`     |
+| Amir Gabriel Dantas Santos Andrade     | `1666035`     |
+| `<nome completo>`                      | `<matrícula>` |
+| `<nome completo>`                      | `<matrícula>` |
+| `<nome completo>`                      | `<matrícula>` |
+| `<nome completo>`                      | `<matrícula>` |
 
 ## Domínio
 
