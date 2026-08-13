@@ -1,0 +1,24 @@
+app:
+  topico: vendas.ingresso.reservado.v1
+
+spring:
+  application:
+    name: servico-vendas
+
+  kafka:
+    bootstrap-servers: localhost:19092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        # o consumidor usa a classe dele proprio para desserializar; nao precisamos
+        # anunciar o tipo Java nos cabecalhos
+        spring.json.add.type.headers: false
+
+logging:
+  level:
+    root: WARN
+    br.pucminas.aed: INFO
+    org.springframework.boot: INFO
+  pattern:
+    console: "%d{HH:mm:ss} %-5level %-28logger{0} : %msg%n"
