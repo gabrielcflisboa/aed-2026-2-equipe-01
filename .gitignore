@@ -1,0 +1,14 @@
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# SO
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Banco H2 em arquivo (dados locais, não versionar)
+servico-ingressos/data/
