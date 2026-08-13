@@ -1,4 +1,4 @@
-# AGENTS.md — padrões obrigatórios deste repositório 
+# AGENTS.md — padrões obrigatórios deste repositório
 
 Este arquivo orienta qualquer pessoa (ou agente de IA) que for implementar
 código neste repositório. Os padrões abaixo vêm do enunciado da Aula 02 e são
