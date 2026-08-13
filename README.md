@@ -5,7 +5,7 @@
 | Nome completo | Matrícula |
 |---|---|
 | Gabriel Campos Ferreira Lisboa (líder) | `255696` |
-| `<nome completo>` | `<matrícula>` |
+| Maria Luísa Lacerda | `1418550` |
 | `<nome completo>` | `<matrícula>` |
 | `<nome completo>` | `<matrícula>` |
 | `<nome completo>` | `<matrícula>` |
