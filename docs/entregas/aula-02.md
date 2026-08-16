@@ -10,7 +10,14 @@
   `ItemDoIngressoVO`, mais `VendaConfig` (KafkaTemplate).
 - `<preencher: VendaService — regra de negócio, chave de partição, envelope CloudEvents>`
 - `<preencher: VendaCallbackService — tratamento do retorno do send()>`
-- `<preencher: VendaController — endpoint HTTP, resposta 202>`
+- `VendaController`: criado o endpoint `POST /vendas/reservas`, responsável por
+  receber a solicitação de reserva, delegar o processamento ao `VendaService` e
+  retornar `202 Accepted`, indicando que o efeito da reserva será processado de
+  forma assíncrona.
+- `servico-ingressos`: criada a representação própria de
+  `IngressoReservadoEvent` no consumidor, independente da classe existente no
+  publisher, com menos campos e tolerância a campos desconhecidos na
+  desserialização.
 - `<preencher: consumer servico-ingressos aplicando o efeito e a compensação>`
 - `<preencher: teste de idempotência — mesmo evento entregue 3x, efeito único>`
 
@@ -20,7 +27,7 @@
 - Padrões de pacote/nomenclatura: [AGENTS.md](../../AGENTS.md)
 - Publisher: [servico-vendas](../../servico-vendas)
   - Evento: [IngressoReservadoEvent.java](../../servico-vendas/src/main/java/br/pucminas/aed/vendas/domain/IngressoReservadoEvent.java)
-  - `<preencher: VendaService.java>` · `<preencher: VendaCallbackService.java>` · `<preencher: VendaController.java>`
+  - `<preencher: VendaService.java>` · `<preencher: VendaCallbackService.java>` · [VendaController.java](../..servico-vendas/src/test/java/br/pucminas/aed/vendas/VendaController.java)
 - Consumer: [servico-ingressos](../../servico-ingressos)
 - Registro de uso de IA: [docs/IA.md](../IA.md)
 - `<preencher: link direto para o teste de idempotência, ex. servico-ingressos/src/test/...>`
@@ -50,8 +57,7 @@ cd servico-vendas; ./mvnw.cmd spring-boot:run
 | Integrante | O que fez |
 |---|---|
 | Gabriel Campos Ferreira Lisboa | ADR-002, estrutura inicial do repositório, `docker-compose.yml`, base do publisher (`servico-vendas`: evento, VO, config) |
-| `<nome>` | `<preencher>` |
-| `<nome>` | `<preencher>` |
+| Maria Luisa Lacerda | Implementação do item 3: `VendaController`, com endpoint `POST /vendas/reservas` e resposta `202 Accepted`; criação da representação própria de `IngressoReservadoEvent` no `servico-ingressos`, com tolerância a campos desconhecidos. || `<nome>` | `<preencher>` |
 | `<nome>` | `<preencher>` |
 | `<nome>` | `<preencher>` |
 | `<nome>` | `<preencher>` |
