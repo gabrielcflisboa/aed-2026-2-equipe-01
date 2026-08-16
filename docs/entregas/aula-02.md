@@ -54,11 +54,12 @@ cd servico-vendas; ./mvnw.cmd spring-boot:run
 
 ## Quem fez o quê
 
-| Integrante | O que fez |
-|---|---|
-| Gabriel Campos Ferreira Lisboa | ADR-002, estrutura inicial do repositório, `docker-compose.yml`, base do publisher (`servico-vendas`: evento, VO, config) |
+| Integrante                         | O que fez |
+|------------------------------------|---|
+| Gabriel Campos Ferreira Lisboa     | ADR-002, estrutura inicial do repositório, `docker-compose.yml`, base do publisher (`servico-vendas`: evento, VO, config) |
+| Amir Gabriel Dantas Santos Andrade | Implementação da persistência no `servico-ingressos`: configuração do banco H2 em arquivo, criação automática das tabelas via `schema.sql`, implementação do `IngressoJdbcRepository` (`JdbcTemplate`) para controle de estoque por setor e deduplicação de eventos, e suite de testes de integração (`IngressoRepositoryTest`). |
 | Maria Luisa Lacerda | Implementação do item 3: `VendaController`, com endpoint `POST /vendas/reservas` e resposta `202 Accepted`; criação da representação própria de `IngressoReservadoEvent` no `servico-ingressos`, com tolerância a campos desconhecidos. || `<nome>` | `<preencher>` |
-| `<nome>` | `<preencher>` |
-| `<nome>` | `<preencher>` |
-| `<nome>` | `<preencher>` |
-| `<nome>` | `<preencher>` |
+| `<nome>`                           | `<preencher>` |
+| `<nome>`                           | `<preencher>` |
+| `<nome>`                           | `<preencher>` |
+| `<nome>`                           | `<preencher>` |

@@ -1,5 +1,20 @@
 app:
   topico: vendas.ingresso.reservado.v1
+  evento:
+    origem: servico-vendas
+    tipo: vendas.ingresso.reservado.v1
+
+  # Regra de negocio do publisher. Numeros de exemplo: com limite 4, o
+  # exemplo-reserva.json (3 ingressos) passa na primeira vez e e recusado
+  # na segunda, que e a demonstracao do ponto de decisao.
+  limite-por-cpf: 4
+
+  # Capacidade declarada de cada setor. Nao e o estoque: o estoque real,
+  # com o que ja foi vendido, e do servico-ingressos.
+  setores:
+    PISTA: 100
+    CAMAROTE: 20
+    ARQUIBANCADA: 50
 
 spring:
   application:
@@ -9,7 +24,7 @@ spring:
     bootstrap-servers: localhost:19092
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
       properties:
         # o consumidor usa a classe dele proprio para desserializar; nao precisamos
         # anunciar o tipo Java nos cabecalhos
