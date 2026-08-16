@@ -1,5 +1,8 @@
 app:
   topico: vendas.ingresso.reservado.v1
+  evento:
+    origem: servico-vendas
+    tipo: vendas.ingresso.reservado.v1
 
   # Regra de negocio do publisher. Numeros de exemplo: com limite 4, o
   # exemplo-reserva.json (3 ingressos) passa na primeira vez e e recusado
@@ -21,10 +24,6 @@ spring:
     bootstrap-servers: localhost:19092
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      # JacksonJsonSerializer, e nao JsonSerializer: o Spring Boot 4 traz a
-      # Jackson 3 (tools.jackson). O JsonSerializer antigo ainda existe no
-      # spring-kafka, mas procura com.fasterxml.jackson.databind, que nao esta
-      # mais no classpath — e quebra so na hora de criar o produtor.
       value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
       properties:
         # o consumidor usa a classe dele proprio para desserializar; nao precisamos
