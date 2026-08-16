@@ -1,0 +1,9 @@
+{
+  "compraId": "compra-0001",
+  "cpfComprador": "000.000.000-00",
+  "evento": "show-pucminas-2026",
+  "itens": [
+    { "setor": "PISTA", "quantidade": 2, "precoUnitario": 180.00 },
+    { "setor": "CAMAROTE", "quantidade": 1, "precoUnitario": 450.00 }
+  ]
+}
