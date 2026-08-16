@@ -1,13 +1,5 @@
 package br.pucminas.aed.vendas.domain;
 
-/**
- * A reserva foi recusada porque o comprador passou do limite de ingressos.
- *
- * E o ponto de decisao que o ADR-002 promete: sem esta excecao, o publisher
- * seria um repassador de mensagens, nao um servico com regra de negocio.
- * Nao carrega o CPF de proposito — o motivo da recusa nao precisa devolver
- * dado pessoal na resposta HTTP.
- */
 public class LimiteDeIngressosExcedidoException extends RuntimeException {
 
     private final int jaReservados;

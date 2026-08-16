@@ -6,12 +6,6 @@ import java.util.Objects;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/**
- * Um item da reserva: o assento/setor pedido e a quantidade.
- *
- * Imutavel de proposito: campos private final, sem setter. Uma vez montado
- * o evento, nada no caminho ate o Kafka pode alterar o que foi decidido.
- */
 public final class ItemDoIngressoVO {
 
     private final String setor;

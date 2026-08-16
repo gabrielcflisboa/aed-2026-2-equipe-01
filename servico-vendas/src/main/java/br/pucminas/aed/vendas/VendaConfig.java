@@ -1,28 +1,14 @@
 package br.pucminas.aed.vendas;
-
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
-
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
-
 import br.pucminas.aed.vendas.domain.IngressoReservadoEvent;
 
-/**
- * Config do produtor e dos parametros da regra de negocio.
- *
- * O limite por CPF e a capacidade dos setores estão no application.yml, e
- * nao como constante no codigo: sao numeros de negocio, que mudam por
- * evento, e assim da para alterar sem recompilar nada.
- *
- * O formato ISO-8601 da data ja e garantido pelo @JsonFormat no proprio
- * evento (ver IngressoReservadoEvent.getReservadoEm()), sem depender de
- * customizer global do ObjectMapper.
- */
 @Configuration
 @ConfigurationProperties(prefix = "app")
 public class VendaConfig {

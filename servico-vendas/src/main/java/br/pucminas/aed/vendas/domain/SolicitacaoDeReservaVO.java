@@ -7,13 +7,6 @@ import java.util.Objects;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/**
- * O que chega no corpo do POST /vendas/reservas.
- *
- * Nao e o evento: e o pedido do comprador, ainda sem eventoId e sem
- * carimbo de tempo. Quem transforma um no outro e o VendaService, depois
- * de aceitar a solicitacao.
- */
 public final class SolicitacaoDeReservaVO {
 
     private final String compraId;
