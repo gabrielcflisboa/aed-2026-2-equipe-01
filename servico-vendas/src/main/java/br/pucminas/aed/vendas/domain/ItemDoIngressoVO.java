@@ -3,6 +3,9 @@ package br.pucminas.aed.vendas.domain;
 import java.math.BigDecimal;
 import java.util.Objects;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * Um item da reserva: o assento/setor pedido e a quantidade.
  *
@@ -15,7 +18,11 @@ public final class ItemDoIngressoVO {
     private final int quantidade;
     private final BigDecimal precoUnitario;
 
-    public ItemDoIngressoVO(String setor, int quantidade, BigDecimal precoUnitario) {
+    @JsonCreator
+    public ItemDoIngressoVO(
+            @JsonProperty("setor") String setor,
+            @JsonProperty("quantidade") int quantidade,
+            @JsonProperty("precoUnitario") BigDecimal precoUnitario) {
         this.setor = Objects.requireNonNull(setor, "setor");
         if (quantidade <= 0) {
             throw new IllegalArgumentException("quantidade deve ser maior que zero");
