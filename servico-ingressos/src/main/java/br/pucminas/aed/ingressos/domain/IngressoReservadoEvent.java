@@ -5,17 +5,18 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
+import java.util.UUID;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public final class IngressoReservadoEvent {
 
-    private final String eventoId;
+    private final UUID eventoId;
     private final String evento;
     private final List<ItemDoIngressoVO> itens;
 
     @JsonCreator
     public IngressoReservadoEvent(
-            @JsonProperty("eventoId") String eventoId,
+            @JsonProperty("eventoId") UUID eventoId,
             @JsonProperty("evento") String evento,
             @JsonProperty("itens") List<ItemDoIngressoVO> itens) {
 
@@ -24,7 +25,7 @@ public final class IngressoReservadoEvent {
         this.itens = List.copyOf(itens);
     }
 
-    public String getEventoId() {
+    public UUID getEventoId() {
         return eventoId;
     }
 
