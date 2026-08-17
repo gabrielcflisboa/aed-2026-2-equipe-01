@@ -1,7 +1,7 @@
 # ADR-002 — Domínio do projeto
 
 ## Status
-Aceita · 2026-08-16 · Equipe 02
+Aceita · 2026-08-16 · Equipe 01
 
 ## Contexto
 A equipe precisa de um processo de negócio real para servir de base aos
@@ -20,6 +20,19 @@ o serviço de vendas valida limite por CPF e disponibilidade do setor, publica
 um fato de reserva e aciona um gateway de pagamento externo (simulado); se o
 pagamento for recusado ou a reserva expirar sem confirmação, o ingresso volta
 para o estoque do setor por meio de um evento de compensação.
+
+As mensagens usam CloudEvents 1.0 em modo binário. `IngressoReservadoEvent`
+é publicado em `vendas.ingresso.reservado.v1`; `IngressoReservaCompensadaEvent`
+é publicado em `vendas.ingresso.reserva-compensada.v1`. Ambos levam
+`ce_specversion`, `ce_id`, `ce_source`, `ce_type` e `ce_time`, com data
+ISO-8601 do fato. A ordem é particionada pelo evento de entretenimento, pois
+as reservas de seus setores disputam o mesmo estoque.
+
+O serviço de ingressos mantém o estoque por setor em H2 de arquivo. Para cada
+mensagem, a alteração do estoque e a gravação de `eventoId` em
+`evento_processado` ocorrem na mesma transação. O listener confirma o offset
+somente depois do retorno do serviço transacional, em modo manual; uma
+redelivery com `eventoId` já registrado não produz outro efeito.
 
 Como o domínio atende os quatro critérios:
  - ponto de decisao com regra de negocio: limite de ingressos por CPF e
@@ -46,3 +59,8 @@ pagamento real, e cancelamento pelo próprio comprador (só cobrimos expiração
 e recusa). Na aula 05, a Saga de compensação (liberar assento) vai exigir
 cuidado para não reprocessar uma reserva já expirada duas vezes — é algo que
 antecipamos aqui e vamos tratar via idempotência do consumidor.
+
+Para demonstração local, a recusa do pagamento é simulada por
+`POST /vendas/reservas/{compraId}/compensacoes`. A reserva fica em memória no
+publisher somente enquanto aguarda essa decisão; o serviço de vendas não tem
+persistência.
