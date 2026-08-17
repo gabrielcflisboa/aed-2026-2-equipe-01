@@ -3,13 +3,13 @@
 ## Integrantes
 
 | Nome completo                          | Matrícula     |
-|----------------------------------------|---------------|
+| -------------------------------------- | ------------- |
 | Gabriel Campos Ferreira Lisboa (líder) | `255696`      |
 | Maria Luísa Lacerda                    | `1418550`     |
 | Amir Gabriel Dantas Santos Andrade     | `1666035`     |
 | Pedro Assis Corrêa                     | `256357`      |
 | Thiago Felipe dos Santos               | `258087`      |
-| `<nome completo>`                      | `<matrícula>` |
+| Willian dos Santos Miranda             | `258173`      |
 | `<nome completo>`                      | `<matrícula>` |
 
 ## Domínio
@@ -52,6 +52,7 @@ Pré-requisitos: JDK 21, Docker. O Maven é resolvido pelo wrapper (`mvnw`/`mvnw
 5. Acompanhe as mensagens e os cabeçalhos `ce_*` no Kafka UI: http://localhost:8081
 
 Para derrubar tudo (inclusive volumes):
+
 ```powershell
 docker compose down -v
 ```
