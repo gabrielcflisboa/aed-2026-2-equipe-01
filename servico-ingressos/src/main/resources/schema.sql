@@ -7,3 +7,8 @@ CREATE TABLE IF NOT EXISTS evento_processado (
     evento_id VARCHAR(36) PRIMARY KEY,
     processado_em TIMESTAMP WITH TIME ZONE NOT NULL
 );
+
+MERGE INTO estoque_setor (setor, quantidade_disponivel) KEY (setor) VALUES
+    ('PISTA', 100),
+    ('CAMAROTE', 20),
+    ('ARQUIBANCADA', 50);
