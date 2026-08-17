@@ -10,7 +10,6 @@ services:
 
   kafka:
     image: apache/kafka:3.9.0
-    container_name: aed-kafka
     ports:
       - "19092:9092"
     environment:
@@ -36,7 +35,6 @@ services:
   # Interface web para inspecionar topicos, particoes e mensagens: http://localhost:8081
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
-    container_name: aed-kafka-ui
     ports:
       - "8081:8080"
     environment:

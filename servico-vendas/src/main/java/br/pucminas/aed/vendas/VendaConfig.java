@@ -7,28 +7,35 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
-import br.pucminas.aed.vendas.domain.IngressoReservadoEvent;
 
 @Configuration
 @ConfigurationProperties(prefix = "app")
 public class VendaConfig {
 
-    private String topico;
+    private String topicoReservas;
+    private String topicoCompensacoes;
     private int limitePorCpf;
     private Map<String, Integer> setores = new LinkedHashMap<>();
 
     @Bean
-    public KafkaTemplate<String, IngressoReservadoEvent> kafkaTemplate(
-            ProducerFactory<String, IngressoReservadoEvent> producerFactory) {
+    public KafkaTemplate<String, Object> kafkaTemplate(ProducerFactory<String, Object> producerFactory) {
         return new KafkaTemplate<>(producerFactory);
     }
 
-    public String getTopico() {
-        return topico;
+    public String getTopicoReservas() {
+        return topicoReservas;
     }
 
-    public void setTopico(String topico) {
-        this.topico = topico;
+    public void setTopicoReservas(String topicoReservas) {
+        this.topicoReservas = topicoReservas;
+    }
+
+    public String getTopicoCompensacoes() {
+        return topicoCompensacoes;
+    }
+
+    public void setTopicoCompensacoes(String topicoCompensacoes) {
+        this.topicoCompensacoes = topicoCompensacoes;
     }
 
     public int getLimitePorCpf() {

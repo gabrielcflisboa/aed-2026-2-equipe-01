@@ -54,3 +54,28 @@ loga partição e offset. A falha é registrada e **não** propagada: quem chamo
 exceção lançada dentro de callback assíncrona não chegaria ao cliente HTTP de qualquer forma.
 
 ---
+
+### Gabriel Campos Ferreira Lisboa (255696) — Interação 3: consumer idempotente e compensação
+
+Ferramenta: GitHub Copilot.
+Arquivos afetados: `IngressoListener.java`, `IngressoService.java`,
+`IngressoReservaCompensadaEvent.java`, `IngressoListenerIdempotenciaTest.java` e
+as configurações dos dois serviços.
+
+**Pedido:** concluir o fluxo de reserva e compensação com Kafka, H2 e teste de
+redelivery.
+
+**Sugerido:** reconhecer o evento repetido no listener e fazer
+`ack.acknowledge()` antes de processá-lo, para não recebê-lo novamente.
+
+**RECUSADO:** deduplicar apenas em memória e reconhecer antes da transação. Um
+restart perderia a memória; além disso, uma falha entre o `ack` e o commit
+perderia o evento definitivamente. Isso viola o processamento at-least-once.
+
+**Adotado:** `evento_processado` tem `eventoId` como chave primária. O serviço
+testa essa tabela, altera o estoque e registra a deduplicação em uma única
+transação; só então o listener confirma o offset. O teste entrega a mesma
+reserva três vezes e confirma um único débito. Repete o cenário para o evento
+de compensação e confirma uma única devolução.
+
+---

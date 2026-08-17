@@ -46,14 +46,14 @@ class VendaCallbackServiceTest {
     private static final Instant RESERVADO_EM = Instant.parse("2026-08-14T11:59:29.411Z");
 
     @Mock
-    private KafkaTemplate<String, IngressoReservadoEvent> clienteDoBroker;
+    private KafkaTemplate<String, Object> clienteDoBroker;
 
     private VendaCallbackService vendaCallbackService;
     private IngressoReservadoEvent evento;
 
     @BeforeEach
     void preparar() {
-        vendaCallbackService = new VendaCallbackService(clienteDoBroker, TOPICO, ORIGEM, TIPO);
+        vendaCallbackService = new VendaCallbackService(clienteDoBroker, ORIGEM);
         evento = new IngressoReservadoEvent(
                 "b7e1f0c2-0000-4000-8000-000000000001",
                 "compra-4711",
@@ -68,7 +68,7 @@ class VendaCallbackServiceTest {
     void preencheOsCabecalhosCloudEvents() {
         publicacaoBemSucedida();
 
-        ProducerRecord<String, IngressoReservadoEvent> registro = publicarECapturar("PISTA");
+        ProducerRecord<String, Object> registro = publicarECapturar("PISTA");
 
         assertThat(cabecalho(registro, "ce_specversion")).isEqualTo("1.0");
         assertThat(cabecalho(registro, "ce_source")).isEqualTo(ORIGEM);
@@ -95,7 +95,7 @@ class VendaCallbackServiceTest {
     void usaAChaveDeParticaoRecebida() {
         publicacaoBemSucedida();
 
-        ProducerRecord<String, IngressoReservadoEvent> registro = publicarECapturar("PISTA");
+        ProducerRecord<String, Object> registro = publicarECapturar("PISTA");
 
         assertThat(registro.topic()).isEqualTo(TOPICO);
         assertThat(registro.key()).isEqualTo("PISTA");
@@ -105,25 +105,27 @@ class VendaCallbackServiceTest {
     @Test
     @DisplayName("falha na publicacao e registrada, nao propagada para quem chamou")
     void falhaNaPublicacaoNaoPropaga() {
-        when(clienteDoBroker.send(ArgumentMatchers.<ProducerRecord<String, IngressoReservadoEvent>>any()))
+        when(clienteDoBroker.send(ArgumentMatchers.<ProducerRecord<String, Object>>any()))
                 .thenReturn(CompletableFuture.failedFuture(
                         new IllegalStateException("broker indisponivel")));
 
-        assertDoesNotThrow(() -> vendaCallbackService.publicar(evento, "PISTA"));
+        assertDoesNotThrow(() -> vendaCallbackService.publicar(TOPICO, "PISTA", evento.getEventoId(),
+            evento.getReservadoEm(), TIPO, evento));
     }
 
     private void publicacaoBemSucedida() {
         RecordMetadata metadados =
                 new RecordMetadata(new TopicPartition(TOPICO, 0), 7L, 0, RESERVADO_EM.toEpochMilli(), 5, 120);
-        when(clienteDoBroker.send(ArgumentMatchers.<ProducerRecord<String, IngressoReservadoEvent>>any()))
+        when(clienteDoBroker.send(ArgumentMatchers.<ProducerRecord<String, Object>>any()))
                 .thenAnswer(invocacao -> CompletableFuture.completedFuture(
                         new SendResult<>(invocacao.getArgument(0), metadados)));
     }
 
-    private ProducerRecord<String, IngressoReservadoEvent> publicarECapturar(String chaveDeParticao) {
-        vendaCallbackService.publicar(evento, chaveDeParticao);
+    private ProducerRecord<String, Object> publicarECapturar(String chaveDeParticao) {
+        vendaCallbackService.publicar(TOPICO, chaveDeParticao, evento.getEventoId(),
+            evento.getReservadoEm(), TIPO, evento);
 
-        ArgumentCaptor<ProducerRecord<String, IngressoReservadoEvent>> capturado = ArgumentCaptor.captor();
+        ArgumentCaptor<ProducerRecord<String, Object>> capturado = ArgumentCaptor.captor();
         org.mockito.Mockito.verify(clienteDoBroker).send(capturado.capture());
         return capturado.getValue();
     }

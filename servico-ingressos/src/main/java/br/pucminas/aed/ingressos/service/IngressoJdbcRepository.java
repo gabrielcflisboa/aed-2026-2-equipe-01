@@ -34,7 +34,7 @@ public class IngressoJdbcRepository implements IngressoRepository {
     @Override
     public void devolverEstoque(String setor, int quantidade) {
         String sql = "UPDATE estoque_setor SET quantidade_disponivel = quantidade_disponivel + ? WHERE setor = ?";
-        this.clienteJdbc.update(sql, setor, quantidade);
+        this.clienteJdbc.update(sql, quantidade, setor);
     }
 
     @Override
