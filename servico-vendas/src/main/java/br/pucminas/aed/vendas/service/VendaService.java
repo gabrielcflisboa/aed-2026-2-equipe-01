@@ -1,15 +1,11 @@
 package br.pucminas.aed.vendas.service;
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.header.Headers;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import br.pucminas.aed.vendas.VendaConfig;
+import br.pucminas.aed.vendas.domain.IngressoReservaCompensadaEvent;
 import br.pucminas.aed.vendas.domain.IngressoReservadoEvent;
 import br.pucminas.aed.vendas.domain.ItemDoIngressoVO;
 import br.pucminas.aed.vendas.domain.LimiteDeIngressosExcedidoException;
@@ -19,19 +15,16 @@ import br.pucminas.aed.vendas.domain.SolicitacaoDeReservaVO;
 @Service
 public class VendaService {
 
-    /** Uma grafia so, versionada: dominio.entidade.fato.v1. */
-    private static final String TIPO_DO_EVENTO = "vendas.ingresso.reservado.v1";
-    private static final String ORIGEM_DO_EVENTO = "/servico-vendas";
+    private static final String TIPO_RESERVA = "vendas.ingresso.reservado.v1";
+    private static final String TIPO_COMPENSACAO = "vendas.ingresso.reserva-compensada.v1";
 
-    private final KafkaTemplate<String, IngressoReservadoEvent> clienteDoBroker;
     private final VendaCallbackService vendaCallbackService;
     private final VendaConfig vendaConfig;
     private final ConcurrentMap<String, Integer> ingressosPorCpf = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, IngressoReservadoEvent> reservasPorCompra = new ConcurrentHashMap<>();
 
-    public VendaService(KafkaTemplate<String, IngressoReservadoEvent> clienteDoBroker,
-            VendaCallbackService vendaCallbackService,
+    public VendaService(VendaCallbackService vendaCallbackService,
             VendaConfig vendaConfig) {
-        this.clienteDoBroker = clienteDoBroker;
         this.vendaCallbackService = vendaCallbackService;
         this.vendaConfig = vendaConfig;
     }
@@ -48,11 +41,25 @@ public class VendaService {
                 solicitacao.getEvento(),
                 solicitacao.getItens());
 
-        var registro = new ProducerRecord<>(vendaConfig.getTopico(), evento.getEvento(), evento);
-        envelopar(registro.headers(), evento);
+        reservasPorCompra.put(evento.getCompraId(), evento);
+        vendaCallbackService.publicar(vendaConfig.getTopicoReservas(), evento.getEvento(),
+                evento.getEventoId(), evento.getReservadoEm(), TIPO_RESERVA, evento);
 
-        vendaCallbackService.registrar(clienteDoBroker.send(registro), evento.getEventoId());
+        return evento;
+    }
 
+    public IngressoReservaCompensadaEvent compensar(String compraId) {
+        var reserva = reservasPorCompra.remove(compraId);
+        if (reserva == null) {
+            throw new IllegalArgumentException("reserva nao encontrada para a compra " + compraId);
+        }
+
+        ingressosPorCpf.computeIfPresent(reserva.getCpfComprador(),
+                (cpf, reservados) -> reservados - totalPedido(agruparPorSetor(reserva.getItens())));
+
+        var evento = IngressoReservaCompensadaEvent.novo(reserva);
+        vendaCallbackService.publicar(vendaConfig.getTopicoCompensacoes(), evento.getEvento(),
+                evento.getEventoId(), evento.getCompensadoEm(), TIPO_COMPENSACAO, evento);
         return evento;
     }
 
@@ -92,15 +99,4 @@ public class VendaService {
         return pedidoPorSetor.values().stream().mapToInt(Integer::intValue).sum();
     }
 
-    private void envelopar(Headers cabecalhos, IngressoReservadoEvent evento) {
-        cabecalhos.add("ce_specversion", texto("1.0"));
-        cabecalhos.add("ce_id", texto(evento.getEventoId()));
-        cabecalhos.add("ce_source", texto(ORIGEM_DO_EVENTO));
-        cabecalhos.add("ce_type", texto(TIPO_DO_EVENTO));
-        cabecalhos.add("ce_time", texto(Instant.now().toString()));
-    }
-
-    private byte[] texto(String valor) {
-        return valor.getBytes(StandardCharsets.UTF_8);
-    }
 }

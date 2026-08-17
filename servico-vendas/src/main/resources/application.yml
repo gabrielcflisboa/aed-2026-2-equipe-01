@@ -1,5 +1,6 @@
 app:
-  topico: vendas.ingresso.reservado.v1
+  topico-reservas: vendas.ingresso.reservado.v1
+  topico-compensacoes: vendas.ingresso.reserva-compensada.v1
   evento:
     origem: servico-vendas
     tipo: vendas.ingresso.reservado.v1
