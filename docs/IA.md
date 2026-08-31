@@ -79,3 +79,40 @@ reserva três vezes e confirma um único débito. Repete o cenário para o event
 de compensação e confirma uma única devolução.
 
 ---
+
+## Aula 03
+
+### Gabriel Campos Ferreira Lisboa (255696) — agregador por janela de tempo
+
+Ferramenta: GitHub Copilot.
+Arquivos afetados: `AgregadorDeReservasListener.java`,
+`AgregacaoDeReservasService.java`, `AgregacaoJdbcRepository.java`,
+`IngressoReservadoEvent.java` (adição de `reservadoEm`), `schema.sql`,
+`AgregacaoDeReservasServiceTest.java`.
+
+**Pedido:** implementar um segundo consumidor, com `group.id` próprio, que
+agregasse o fluxo de reservas por janela de tempo, respondendo a uma
+pergunta de negócio.
+
+**Sugerido:** usar processing time (`Instant.now()` no momento em que o
+listener recebe a mensagem) para calcular a janela, por ser mais simples de
+implementar e não depender de nenhum campo do payload.
+
+**RECUSADO:** processing time para esta pergunta. A pergunta agregada é
+"quantos ingressos foram reservados por setor/evento" — um fato do domínio,
+não da infraestrutura de consumo. Com processing time, reprocessar o tópico
+do início (por exemplo depois de corrigir um bug no agregador) mudaria o
+resultado, já que cada mensagem cairia em uma janela diferente dependendo de
+quando fosse lida. Isso tornaria a agregação não confiável como fonte de
+relatório.
+
+**Adotado:** event time, lendo `reservadoEm` do próprio payload (campo que já
+existe no evento do publisher, mas que o consumidor original — por ser
+tolerante e minimalista — não declarava). O consumidor da aula 02 continua
+ignorando esse e outros campos que não usa; só o novo evento consumido pelo
+agregador passou a declarar `reservadoEm`. Isso torna o resultado da
+agregação determinístico sob reprocessamento, o que o teste
+`AgregacaoDeReservasServiceTest` confirma diretamente ao gravar eventos fora
+de ordem de chegada e verificar que cada um cai na janela correta.
+
+---
