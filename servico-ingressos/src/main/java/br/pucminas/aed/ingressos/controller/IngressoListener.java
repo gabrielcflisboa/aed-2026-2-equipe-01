@@ -2,6 +2,7 @@ package br.pucminas.aed.ingressos.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import br.pucminas.aed.ingressos.domain.IngressoReservaCompensadaEvent;
 import br.pucminas.aed.ingressos.domain.IngressoReservadoEvent;
@@ -18,7 +19,7 @@ public class IngressoListener {
     private static final Logger logger = LoggerFactory.getLogger(IngressoListener.class);
 
     private final IngressoService ingressoService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     public IngressoListener(IngressoService ingressoService) {
         this.ingressoService = ingressoService;
