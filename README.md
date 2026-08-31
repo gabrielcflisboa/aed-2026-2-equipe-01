@@ -24,8 +24,12 @@ Detalhes e critérios atendidos em
 
 - `servico-vendas` — publisher: recebe a solicitação de reserva e publica `IngressoReservadoEvent`.
 - `servico-ingressos` — consumer idempotente: aplica o efeito no estoque por setor e trata a compensação.
+  Roda também, no mesmo processo, um segundo consumidor com `group.id` próprio
+  (`AgregadorDeReservasListener`) que agrega reservas por setor/evento em
+  janelas de 1 minuto — ver [docs/entregas/aula-03.md](docs/entregas/aula-03.md).
 
 Padrões de pacote, nomenclatura e idempotência em [AGENTS.md](AGENTS.md).
+Contrato do evento em [docs/contrato.md](docs/contrato.md).
 
 ## Como rodar (máquina limpa)
 
@@ -55,10 +59,17 @@ Pré-requisitos: JDK 21, Docker. O Maven é resolvido pelo wrapper (`mvnw`/`mvnw
    Invoke-RestMethod http://localhost:8080/vendas/reservas/compra-demo-001/compensacoes -Method Post
    ```
 6. Acompanhe os dois tópicos e os cabeçalhos `ce_*` no Kafka UI: http://localhost:8081
+7. Consulte a agregação por setor/evento (o `servico-ingressos` já processa as
+   reservas nos dois consumidores assim que sobe, não precisa de passo extra):
+   ```powershell
+   Invoke-RestMethod "http://localhost:8082/agregacao/reservas-por-setor?evento=show-demo"
+   ```
 
 O consumer grava H2 em `./data/ingressos`. O teste
 `IngressoListenerIdempotenciaTest` entrega a mesma reserva e a mesma compensação
-três vezes e verifica que cada uma altera o estoque somente uma vez.
+três vezes e verifica que cada uma altera o estoque somente uma vez. O teste
+`AgregacaoDeReservasServiceTest` verifica a soma por janela de 1 minuto e o
+tratamento de eventos fora de ordem de chegada.
 
 ## Como testar manualmente
 
