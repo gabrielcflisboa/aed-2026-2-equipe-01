@@ -5,7 +5,7 @@
 | Nome completo                          | Matrícula     |
 | -------------------------------------- | ------------- |
 | Gabriel Campos Ferreira Lisboa (líder) | `255696`      |
-| Maria Luísa Lacerda                    | `1418550`     |
+| Maria Luísa Lacerda                    | `257115 `     |
 | Amir Gabriel Dantas Santos Andrade     | `1666035`     |
 | Pedro Assis Corrêa                     | `256357`      |
 | Thiago Felipe dos Santos               | `258087`      |
