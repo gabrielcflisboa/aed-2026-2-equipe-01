@@ -19,3 +19,27 @@ CREATE TABLE IF NOT EXISTS evento_processado (
     evento_id     VARCHAR(36) PRIMARY KEY,
     processado_em TIMESTAMP WITH TIME ZONE NOT NULL
 );
+
+-- Projecoes: derivadas do log e descartaveis.
+CREATE TABLE IF NOT EXISTS disponibilidade_por_setor (
+    evento     VARCHAR(80) NOT NULL,
+    setor      VARCHAR(50) NOT NULL,
+    capacidade INT NOT NULL,
+    retirados  INT NOT NULL,
+    disponivel INT NOT NULL,
+    PRIMARY KEY (evento, setor)
+);
+
+CREATE TABLE IF NOT EXISTS ocupacao_por_evento (
+    evento               VARCHAR(80) PRIMARY KEY,
+    capacidade_total     INT NOT NULL DEFAULT 0,
+    ingressos_retirados  INT NOT NULL DEFAULT 0,
+    ingressos_devolvidos INT NOT NULL DEFAULT 0,
+    reservas_recusadas   INT NOT NULL DEFAULT 0,
+    ocupacao_pct         INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS projecao_checkpoint (
+    projecao         VARCHAR(60) PRIMARY KEY,
+    ultima_sequencia BIGINT NOT NULL
+);
