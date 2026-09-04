@@ -9,6 +9,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.pucminas.aed.ingressos.domain.EstoqueDoSetor;
@@ -32,10 +33,16 @@ class IngressoServiceIdempotenciaTest {
     private IngressoService ingressoService;
 
     @Autowired
+    private ReconstrucaoService reconstrucaoService;
+
+    @Autowired
     private EventoDoEstoqueRepository eventoDoEstoqueRepository;
 
+    @Autowired
+    private JdbcTemplate clienteJdbc;
+
     @Test
-    @DisplayName("mesmo evento entregue 3x: um unico IngressoRetirado no log")
+    @DisplayName("mesmo evento entregue 3x: um unico IngressoRetirado no log e um unico debito")
     void mesmoEventoTresVezesEfeitoUnico() {
         aberturaDeSetoresService.abrir(EVENTO, "PISTA", 10);
         var mensagem = reserva(UUID.randomUUID(), "PISTA", 3);
@@ -53,6 +60,9 @@ class IngressoServiceIdempotenciaTest {
         var estoque = EstoqueDoSetor.reconstruir(stream, log);
         assertThat(estoque.getRetirados()).isEqualTo(3);
         assertThat(estoque.getDisponivel()).isEqualTo(7);
+
+        reconstrucaoService.avancar();
+        assertThat(disponivelNaTela()).isEqualTo(7);
     }
 
     @Test
@@ -68,6 +78,13 @@ class IngressoServiceIdempotenciaTest {
 
         assertThat(estoque.getVersao()).isEqualTo(3);
         assertThat(estoque.getDisponivel()).isEqualTo(5);
+    }
+
+    private int disponivelNaTela() {
+        var disponivel = clienteJdbc.queryForObject(
+                "SELECT disponivel FROM disponibilidade_por_setor WHERE evento = ? AND setor = 'PISTA'",
+                Integer.class, EVENTO);
+        return disponivel == null ? -1 : disponivel;
     }
 
     private static IngressoReservadoEvent reserva(UUID eventoId, String setor, int quantidade) {

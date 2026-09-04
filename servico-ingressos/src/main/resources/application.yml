@@ -8,6 +8,10 @@ app:
       CAMAROTE: 20
       ARQUIBANCADA: 50
 
+  projecoes:
+    # Teto da defasagem das telas, em ms. Ver docs/entregas/aula-05.md.
+    intervalo: 1000
+
 spring:
   application:
     name: servico-ingressos
