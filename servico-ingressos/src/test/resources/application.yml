@@ -1,0 +1,32 @@
+app:
+  topico: vendas.ingresso.reservado.v1
+
+  # Sem `abertura`: cada teste abre os setores que usa. Nao declarar a chave e
+  # proposital, porque `abertura: {}` chega ao binder como a string "{}".
+
+  projecoes:
+    # Agendador desligado: quem chama avancar() e reconstruir() e o teste.
+    intervalo: 3600000
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:ingressos-teste;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+
+  sql:
+    init:
+      mode: always
+
+  kafka:
+    bootstrap-servers: localhost:19092
+    consumer:
+      group-id: servico-ingressos-teste
+    listener:
+      ack-mode: manual
+      auto-startup: false
+
+logging:
+  level:
+    root: WARN
+    br.pucminas.aed: INFO
