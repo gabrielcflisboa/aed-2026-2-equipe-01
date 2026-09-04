@@ -1,12 +1,15 @@
 package br.pucminas.aed.vendas;
+
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
+
 import br.pucminas.aed.vendas.domain.IngressoReservadoEvent;
 
 @Configuration
@@ -51,5 +54,9 @@ public class VendaConfig {
 
     public static String normalizar(String setor) {
         return setor == null ? null : setor.trim().toUpperCase(Locale.ROOT);
+    }
+
+    public static String normalizarCpf(String cpf) {
+        return cpf == null ? null : cpf.replaceAll("[^0-9]", "");
     }
 }
