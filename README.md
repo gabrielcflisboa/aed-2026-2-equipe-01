@@ -26,14 +26,14 @@ Detalhes e critérios atendidos em
 - `servico-ingressos` — consumer idempotente com **event sourcing**: o estoque não é
   uma tabela, é derivado de um log append-only (`evento_do_estoque`). O agregado é
   `EstoqueDoSetor`, um stream por `(evento, setor)`, e a versão do stream é o que
-  detecta concorrência. Duas projeções derivadas e descartáveis servem as telas.
+  detecta concorrência. Toda leitura do estoque é uma releitura do stream.
 
 Documentos:
 
 - [ADR-002 — domínio do projeto](docs/adr/ADR-002-dominio-do-projeto.md)
 - [ADR-005 — event sourcing no estoque](docs/adr/ADR-005-event-sourcing.md)
 - [Contrato do evento `IngressoReservadoEvent`](docs/contrato.md)
-- [Entrega da aula 05](docs/entregas/aula-05.md) — inclui a defasagem tolerada por tela
+- [Entrega da aula 05](docs/entregas/aula-05.md) — como rodar e como conferir o log
 - Padrões de pacote, nomenclatura e idempotência em [AGENTS.md](AGENTS.md)
 
 ## Como rodar (máquina limpa)
@@ -70,21 +70,22 @@ Para derrubar tudo (inclusive volumes):
 docker compose down -v
 ```
 
-## Apagar a projeção e reconstruir pelo log
+## Conferir o event store
 
 ```powershell
 cd servico-ingressos
-./mvnw.cmd test -Dtest=ReconstrucaoDeProjecaoTest
+./mvnw.cmd test -Dtest=EventoDoEstoqueRepositoryTest
 ```
 
-O teste monta um histórico com os quatro tipos de fato, guarda as duas projeções,
-apaga as tabelas inteiras, reconstrói pelo log e compara linha a linha — conferindo
-também que o log não foi tocado. O procedimento manual está em
-[docs/entregas/aula-05.md](docs/entregas/aula-05.md#apagar-a-projeção-e-reconstruir-pelo-log).
+Os eventos saem do stream na ordem em que entraram, a versão é por stream e não
+global, e duas gravações feitas sobre a mesma leitura colidem: a segunda vira
+`ConcorrenciaNoStreamException`. É a versão detectando concorrência, sem lock. O
+que olhar direto no banco está em
+[docs/entregas/aula-05.md](docs/entregas/aula-05.md#conferir-o-log).
 
 ## Testes
 
 ```powershell
 cd servico-vendas;    ./mvnw.cmd test   # 5 testes
-cd servico-ingressos; ./mvnw.cmd test   # 20 testes
+cd servico-ingressos; ./mvnw.cmd test   # 15 testes
 ```

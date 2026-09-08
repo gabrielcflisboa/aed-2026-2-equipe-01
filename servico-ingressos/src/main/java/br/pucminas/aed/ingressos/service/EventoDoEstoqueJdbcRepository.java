@@ -65,12 +65,6 @@ public class EventoDoEstoqueJdbcRepository implements EventoDoEstoqueRepository 
         return this.clienteJdbc.query(sql, mapeador(), sequenciaExclusiva, limite);
     }
 
-    @Override
-    public long contar() {
-        Long total = this.clienteJdbc.queryForObject("SELECT COUNT(1) FROM evento_do_estoque", Long.class);
-        return total == null ? 0L : total;
-    }
-
     private List<EventoGravadoVO> lerStreamDesde(StreamDoEstoqueVO stream, long versaoExclusiva) {
         String sql = "SELECT " + COLUNAS + " FROM evento_do_estoque "
                 + "WHERE stream_id = ? AND versao > ? ORDER BY versao";

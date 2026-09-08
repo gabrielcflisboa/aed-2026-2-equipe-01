@@ -1,9 +1,12 @@
-# Entrega da aula 05: event sourcing e projeções
+# Entrega da aula 05: event sourcing no estoque de ingressos
 
 ## O que foi feito nesta etapa
 
 O `servico-ingressos` deixou de guardar o estoque numa tabela mutável e passou a
-derivá-lo de um log append-only.
+derivá-lo de um log append-only. A entrega vai até o event store e para ali: o
+log, o agregado que se reconstrói a partir dele e a versão que detecta
+concorrência. Nenhuma projeção entra aqui, e o motivo está na seção sobre
+defasagem.
 
 - **Agregado e ADR.** `EstoqueDoSetor`, com um stream por `(evento, setor)`. A
   escolha, as alternativas descartadas e as consequências aceitas estão em
@@ -15,23 +18,20 @@ derivá-lo de um log append-only.
 - **Quatro fatos.** `SetorAberto`, `IngressoRetirado`, `IngressoDevolvido`, que é
   a compensação prometida no ADR-002, e `ReservaRecusada`, porque a recusa também
   é informação: é ela que responde quantos tentaram comprar depois de esgotar.
-- **Duas projeções**, derivadas e descartáveis: `disponibilidade_por_setor`, a
-  tela do comprador, e `ocupacao_por_evento`, a tela da produção do show. As duas
-  avançam por catch-up periódico a partir de um checkpoint próprio.
-- **A decisão não lê projeção.** O `IngressoService` relê o stream, reconstrói o
-  agregado e decide sobre ele. Nenhuma regra de negócio consulta uma tabela de
-  projeção.
+- **A decisão sai do log.** O `IngressoService` relê o stream, reconstrói o
+  agregado e decide sobre ele. Não existe tabela de saldo para consultar, e
+  quando existir uma, não é aqui que ela vai ser lida.
 - **A capacidade virou fato.** Nada de `data.sql`: o `AberturaDeSetoresService`
   grava um `SetorAbertoEvent` no primeiro arranque, e por isso a capacidade
-  sobrevive a qualquer reconstrução.
+  sobrevive a qualquer releitura do log.
 - **Idempotência preservada.** A dedup da aula 02 continua, agora com a chave
   primária fazendo o trabalho: tenta inserir e trata a colisão, em vez de
   perguntar antes e inserir depois.
 
 ### Correções de base que esta etapa exigiu
 
-O `develop` não compilava nem subia antes desta entrega, e sem isso o critério
-"apague a projeção e reconstrua" não seria verificável. Foram corrigidos:
+O `develop` não compilava nem subia antes desta entrega, e sem isso nada aqui
+seria verificável. Foram corrigidos:
 
 - O `VendaService` chamava um método inexistente no `VendaCallbackService`
   (`registrar`). A publicação agora é delegada ao `publicar`, com um envelope
@@ -46,22 +46,21 @@ O `develop` não compilava nem subia antes desta entrega, e sem isso o critério
 
 ---
 
-## A defasagem tolerada, por tela
+## A defasagem tolerada
 
-Projeção é assíncrona, então existe uma janela em que o log já tem o fato e a
-tela ainda não. O intervalo de catch-up é `app.projecoes.intervalo`, hoje em
-**1000 ms**. Esse é o teto da defasagem de qualquer tela, e é menor do que a
-tolerância de todas elas.
+Existe um leitor do estoque neste código, e ele é o próprio serviço decidindo
+sobre uma reserva.
 
-| Tela | Quem olha | Lê de | Defasagem tolerada | Por que essa tolerância |
+| Leitura | Quem faz | Lê de | Defasagem tolerada | Por que essa tolerância |
 |---|---|---|---|---|
-| **Disponibilidade no setor** | comprador, na hora de escolher | `disponibilidade_por_setor` | **até ~2 s** | Um número atrasado aqui só faz o comprador tentar uma reserva que o agregado vai recusar. Ele não permite overselling, porque quem decide não lê esta tabela. O custo do atraso é uma tentativa frustrada, não um ingresso vendido duas vezes, e por isso a tolerância pode ser folgada. |
-| **Ocupação do evento** | produção do show, acompanhando a venda | `ocupacao_por_evento` | **até 5 min** | É insumo de decisão de marketing e logística, como abrir mais um lote ou reforçar divulgação, tomada em escala de horas. Ninguém aperta um botão por segundo olhando esta tela, e um número de cinco minutos atrás leva à mesma decisão que o número de agora. |
-| **Demanda recusada** | produção do show, no mesmo painel | `ocupacao_por_evento` (`reservas_recusadas`) | **até 1 h** | Serve para dimensionar o próximo lote ou a próxima data. É leitura de tendência, e a diferença entre 40 e 43 recusas não muda decisão nenhuma. |
-| **Aceitar ou recusar a reserva** | o próprio serviço | **o event store** | **zero, não lê projeção** | É a única leitura que cria um fato. O agregado é reconstruído do stream a cada mensagem, e a versão detecta quem gravou no meio do caminho. Se esta decisão lesse a projeção para ganhar velocidade, a projeção viraria fonte da verdade, e o atraso que é inofensivo nas linhas de cima passaria a vender o mesmo assento duas vezes. |
+| **Aceitar ou recusar a reserva** | o próprio serviço, a cada mensagem | **o event store** | **zero** | É a única leitura que cria um fato. O agregado é reconstruído do stream toda vez, e a versão detecta quem gravou no meio do caminho. Atraso aqui não é inconveniente visual, é o mesmo assento vendido duas vezes. |
 
-A linha de baixo é a que justifica todas as outras. A tolerância das telas pode
-ser generosa exatamente porque nenhuma decisão depende delas.
+A tabela por tela vem junto com a projeção, e a ausência dela nesta entrega é
+deliberada. Enquanto o log for o único lugar de onde alguém lê, não há defasagem
+para tolerar, e um número declarado agora seria inventado. Quando a primeira
+projeção entrar, cada tela que ela servir aparece aqui com a tolerância e a
+justificativa, e a linha acima continua valendo: é ela que permite que as outras
+sejam generosas.
 
 ---
 
@@ -88,38 +87,40 @@ No arranque, o `servico-ingressos` abre os setores configurados em
 setor aberto: SHOW-PUCMINAS-2026::PISTA com capacidade 100
 setor aberto: SHOW-PUCMINAS-2026::CAMAROTE com capacidade 20
 setor aberto: SHOW-PUCMINAS-2026::ARQUIBANCADA com capacidade 50
-projecao disponibilidade_por_setor avancou 3 evento(s)
-projecao ocupacao_por_evento avancou 3 evento(s)
 ```
 
-### Apagar a projeção e reconstruir pelo log
+Subir de novo não duplica nada: o `AberturaDeSetoresService` só grava em stream
+vazio.
 
-É o critério que mais pesa na correção, e há dois caminhos.
-
-Automatizado, que é o que prova de verdade:
+### Conferir o log
 
 ```bash
-cd servico-ingressos && ./mvnw.cmd test -Dtest=ReconstrucaoDeProjecaoTest
+cd servico-ingressos && ./mvnw.cmd test
 ```
 
-O teste monta um histórico com os quatro tipos de fato, guarda o conteúdo das
-duas projeções, apaga as duas tabelas inteiras, reconstrói pelo log e compara
-linha a linha. Também confere que o log não foi tocado no caminho, comparando
-`contar()` antes e depois.
+O que cada teste prova:
+
+- `EventoDoEstoqueRepositoryTest`, o event store. Os eventos saem na ordem em que
+  entraram, a versão é por stream e não global, e duas gravações feitas sobre a
+  mesma leitura colidem, com a segunda virando `ConcorrenciaNoStreamException`.
+  Confere também que o payload sobrevive à ida e volta do JSON e que `lerDesde`
+  devolve o log em ordem global, que é a ordem de qualquer releitura.
+- `EstoqueDoSetorTest`, o replay puro, sem banco: o estado é função do log e de
+  mais nada.
+- `IngressoServiceIdempotenciaTest`, a mesma mensagem entregue três vezes deixando
+  um único `IngressoRetirado` no log.
 
 Manual, com a aplicação parada e o `data/ingressos.mv.db` no lugar:
 
 ```sql
-DELETE FROM disponibilidade_por_setor;
-DELETE FROM ocupacao_por_evento;
-DELETE FROM projecao_checkpoint;
+SELECT sequencia, stream_id, versao, tipo, dados
+  FROM evento_do_estoque
+ ORDER BY sequencia;
 ```
 
-Suba a aplicação de novo. Não há comando especial de reconstrução: como o
-checkpoint voltou a zero, o mesmo catch-up de sempre relê o log do início e chega
-ao mesmo estado. Os números da `disponibilidade_por_setor` voltam idênticos. O
-teste `apagarTabelasECheckpointReconstroiPeloCatchUp` cobre exatamente este
-procedimento.
+O que estiver ali continua ali depois de qualquer reserva seguinte. Nenhuma linha
+é atualizada e nenhuma é removida, e é a `versao` crescendo de um em um dentro de
+cada `stream_id` que mostra isso.
 
 Para abrir o banco:
 
@@ -144,21 +145,18 @@ java -cp ~/.m2/repository/com/h2database/h2/2.4.240/h2-2.4.240.jar org.h2.tools.
 - [EstoqueEvent.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/domain/EstoqueEvent.java) e os quatro fatos
 - [EventoDoEstoqueRepository.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/domain/EventoDoEstoqueRepository.java), o contrato sem `UPDATE` e sem `DELETE`
 
-**O event store e as projeções**, em `.../ingressos/service/`
+**O event store**, em `.../ingressos/service/`
 
-- [EventoDoEstoqueJdbcRepository.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/EventoDoEstoqueJdbcRepository.java)
-- [DisponibilidadeProjecaoService.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/DisponibilidadeProjecaoService.java)
-- [OcupacaoProjecaoService.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/OcupacaoProjecaoService.java)
-- [ReconstrucaoService.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/ReconstrucaoService.java), catch-up e replay
+- [EventoDoEstoqueJdbcRepository.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/EventoDoEstoqueJdbcRepository.java), o `INSERT` e a colisão de versão
 - [IngressoService.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/IngressoService.java), dedup, replay, decisão, append
-- [schema.sql](../../servico-ingressos/src/main/resources/schema.sql), o que é log, o que é memória de entrega, o que é projeção
+- [AberturaDeSetoresService.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/AberturaDeSetoresService.java), a capacidade entrando como fato
+- [schema.sql](../../servico-ingressos/src/main/resources/schema.sql), o que é log e o que é memória de entrega
 
 **Testes**
 
-- [ReconstrucaoDeProjecaoTest.java](../../servico-ingressos/src/test/java/br/pucminas/aed/ingressos/service/ReconstrucaoDeProjecaoTest.java), o critério que mais pesa
-- [IngressoServiceIdempotenciaTest.java](../../servico-ingressos/src/test/java/br/pucminas/aed/ingressos/service/IngressoServiceIdempotenciaTest.java), mesmo evento 3x, efeito único
 - [EventoDoEstoqueRepositoryTest.java](../../servico-ingressos/src/test/java/br/pucminas/aed/ingressos/service/EventoDoEstoqueRepositoryTest.java), ordem, versão e concorrência
 - [EstoqueDoSetorTest.java](../../servico-ingressos/src/test/java/br/pucminas/aed/ingressos/domain/EstoqueDoSetorTest.java), o replay puro, sem banco
+- [IngressoServiceIdempotenciaTest.java](../../servico-ingressos/src/test/java/br/pucminas/aed/ingressos/service/IngressoServiceIdempotenciaTest.java), mesmo evento 3x, efeito único
 
 **Registro de IA**: [docs/IA.md](../IA.md)
 
@@ -169,11 +167,11 @@ java -cp ~/.m2/repository/com/h2database/h2/2.4.240/h2-2.4.240.jar org.h2.tools.
 1. **ADR-005**, para a escolha do agregado e o que ela custou.
 2. **`EstoqueDoSetor`**, para ver que o estado é função do log e mais nada. O
    agregado não tem construtor público.
-3. **`IngressoService.processarReserva`**, para a sequência que importa: dedup,
-   reconstrói pelo stream, decide, anexa. Repare que não há leitura de projeção.
-4. **`ReconstrucaoService`**, para a diferença entre `avancar`, o caminho normal
-   que produz a defasagem, e `reconstruir`, que joga fora e refaz.
-5. **`ReconstrucaoDeProjecaoTest`**, para o critério da aula rodando.
+3. **`EventoDoEstoqueJdbcRepository`**, para o `INSERT` sozinho e para a
+   `DuplicateKeyException` virando `ConcorrenciaNoStreamException`.
+4. **`IngressoService.processarReserva`**, para a sequência que importa: dedup,
+   reconstrói pelo stream, decide, anexa.
+5. **`EventoDoEstoqueRepositoryTest`**, para as garantias do log rodando.
 
 ---
 
@@ -181,7 +179,7 @@ java -cp ~/.m2/repository/com/h2database/h2/2.4.240/h2-2.4.240.jar org.h2.tools.
 
 ```
 servico-vendas     mvn -o test    Tests run: 5,  Failures: 0, Errors: 0   BUILD SUCCESS
-servico-ingressos  mvn -o test    Tests run: 20, Failures: 0, Errors: 0   BUILD SUCCESS
+servico-ingressos  mvn -o test    Tests run: 15, Failures: 0, Errors: 0   BUILD SUCCESS
 ```
 
 ---
@@ -190,7 +188,7 @@ servico-ingressos  mvn -o test    Tests run: 20, Failures: 0, Errors: 0   BUILD 
 
 | Integrante | O que fez |
 |---|---|
-| Pedro Assis Corrêa | ADR-005; event store (`evento_do_estoque`, versão como detector de concorrência); agregado `EstoqueDoSetor` e os quatro eventos; as duas projeções e o `ReconstrucaoService`; a suíte de testes de replay, idempotência e concorrência; correção dos bloqueadores de build herdados da aula 02; esta folha de entrega. |
+| Pedro Assis Corrêa | ADR-005; event store (`evento_do_estoque`, versão como detector de concorrência); agregado `EstoqueDoSetor` e os quatro eventos; a suíte de testes de replay, idempotência e concorrência; correção dos bloqueadores de build herdados da aula 02; esta folha de entrega. |
 | `<nome>` | `<a preencher pela equipe>` |
 | `<nome>` | `<a preencher pela equipe>` |
 | `<nome>` | `<a preencher pela equipe>` |

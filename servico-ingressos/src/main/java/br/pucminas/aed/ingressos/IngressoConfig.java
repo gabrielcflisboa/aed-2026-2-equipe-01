@@ -2,13 +2,11 @@ package br.pucminas.aed.ingressos;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Configuration
-@EnableScheduling
 @ConfigurationProperties(prefix = "app")
 public class IngressoConfig {
 

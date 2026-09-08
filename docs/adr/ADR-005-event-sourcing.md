@@ -82,23 +82,21 @@ desfeita, o que uma tabela mutável perderia.
 
 A alternativa óbvia era popular a capacidade dos setores com um `data.sql`. Foi
 recusada. Capacidade inserida direto na tabela é estado que o replay não
-reproduz, e a primeira reconstrução zeraria o estoque inteiro. Como
+reproduz: o agregado reconstruído do stream nasceria zerado. Como
 `SetorAbertoEvent`, a capacidade é o primeiro evento do stream e sobrevive a
 qualquer replay.
 
-### As projeções não decidem nada
+### Nenhuma decisão lê tabela derivada
 
-Duas projeções derivam do mesmo log:
+Esta etapa entrega só o log. Não há projeção, e a decisão de aceitar ou recusar
+uma reserva não lê nada além do stream: o `IngressoService` relê o stream,
+reconstrói o agregado e decide sobre ele.
 
-- `disponibilidade_por_setor`, a tela do comprador
-- `ocupacao_por_evento`, a tela da produção do show
-
-Ambas são apagáveis a qualquer momento. E a regra que sustenta tudo: a decisão de
-aceitar ou recusar uma reserva não lê projeção nenhuma. O `IngressoService` relê
-o stream, reconstrói o agregado e decide sobre ele. Se a decisão lesse
-`disponibilidade_por_setor`, um número atrasado deixaria de ser inconveniente
-visual e passaria a permitir overselling, e a projeção teria virado fonte da
-verdade sem ninguém ter decidido isso.
+A regra vale antes de existir a primeira projeção porque é ela que define o que
+uma projeção pode ser. Tabela derivada serve tela, e nada mais. No momento em que
+a decisão passasse a ler o número pronto de uma delas, um valor atrasado deixaria
+de ser inconveniente visual e passaria a permitir overselling, e a projeção teria
+virado fonte da verdade sem ninguém ter decidido isso.
 
 ### Nota de nomenclatura
 
@@ -142,12 +140,14 @@ não é a fonte, ele é decoração.
 setor e reconstrói o agregado. Aceitamos porque o stream é curto, um evento por
 reserva num setor. Não implementamos snapshots nesta etapa. O gatilho para
 implementar será um stream passar de alguns milhares de eventos, e o desenho já
-está preparado: o snapshot seria mais uma projeção, com a versão como checkpoint.
+está preparado: o snapshot é uma projeção do stream, com a versão como
+checkpoint.
 
-**As telas ficam atrasadas em relação ao log.** As projeções avançam por catch-up
-periódico, então existe uma janela em que o log já tem o fato e a tela ainda não.
-A defasagem tolerada por tela, com a justificativa de cada uma, está em
-[docs/entregas/aula-05.md](../entregas/aula-05.md).
+**Não existe leitura barata do estoque.** Sem projeção, toda pergunta sobre
+disponibilidade passa por reler o stream. Para a única leitura que existe hoje,
+que é a do próprio serviço decidindo sobre uma reserva, esse é o desenho certo.
+Para uma tela de comprador não é, e é o que vai motivar a primeira projeção. Ela
+entra em etapa própria, com a defasagem tolerada decidida tela a tela.
 
 **O log só cresce.** Não há expurgo, e não deveria haver: apagar evento é apagar
 a fonte da verdade. Retenção e arquivamento ficam fora do escopo desta etapa.

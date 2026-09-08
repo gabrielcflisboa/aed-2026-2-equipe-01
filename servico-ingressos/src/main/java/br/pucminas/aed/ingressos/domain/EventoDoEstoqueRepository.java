@@ -9,6 +9,4 @@ public interface EventoDoEstoqueRepository {
     List<EventoGravadoVO> lerStream(StreamDoEstoqueVO stream);
 
     List<EventoGravadoVO> lerDesde(long sequenciaExclusiva, int limite);
-
-    long contar();
 }
