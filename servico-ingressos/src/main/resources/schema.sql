@@ -19,3 +19,18 @@ CREATE TABLE IF NOT EXISTS evento_processado (
     evento_id     VARCHAR(36) PRIMARY KEY,
     processado_em TIMESTAMP WITH TIME ZONE NOT NULL
 );
+
+-- Projecoes
+CREATE TABLE IF NOT EXISTS disponibilidade_por_setor (
+    evento     VARCHAR(80) NOT NULL,
+    setor      VARCHAR(50) NOT NULL,
+    capacidade INT NOT NULL,
+    retirados  INT NOT NULL,
+    disponivel INT NOT NULL,
+    PRIMARY KEY (evento, setor)
+);
+
+CREATE TABLE IF NOT EXISTS projecao_checkpoint (
+    projecao         VARCHAR(60) PRIMARY KEY,
+    ultima_sequencia BIGINT NOT NULL
+);
