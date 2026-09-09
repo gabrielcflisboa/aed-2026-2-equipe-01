@@ -168,3 +168,32 @@ binder do Spring lê isso como a *string* `"{}"` e falha com
 nasce como `LinkedHashMap` vazio.
 
 ---
+
+### Amir Gabriel Dantas Santos Andrade: implementação das projeções, suite de testes e ADR-006
+
+Ferramenta: Gemini.
+Arquivos afetados: [`DisponibilidadeProjecaoService.java`](../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/DisponibilidadeProjecaoService.java),
+[`ReconstrucaoService.java`](../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/ReconstrucaoService.java),
+[`ReconstrucaoDeProjecaoTest.java`](../servico-ingressos/src/test/java/br/pucminas/aed/ingressos/service/ReconstrucaoDeProjecaoTest.java),
+[`ADR-006`](adr/ADR-006-projecoes-e-replay.md) e [`aula-05.md`](entregas/aula-05.md).
+
+---
+
+#### Interação 6 — auxílio com sintaxe Java, navegação no IntelliJ, revisão da projeção e ADR-006
+
+**Pedido:** Orientação para superar dificuldades de adaptação ao ecossistema Java (sintaxe do Spring/Stream API) e à navegação no IntelliJ IDEA; revisão da lógica de projeção/replay implementada; criação da suíte de testes de integração; e formatação da ADR-006 no padrão da equipe.
+
+**Sugerido pela IA:**
+1. Apresentar explicações detalhadas passo a passo do código Java, além de atalhos e fluxos do IntelliJ para execução de testes unitários e depuração.
+2. Sugestão de criar novos arquivos e testes sem reaproveitar a estrutura existente no projeto.
+
+**RECUSADO:**
+- A criação de arquivos fora do padrão e testes desvinculados do contexto original foram recusadas para não quebrar as regras de pacotes estabelecidas no `AGENTS.md`.
+
+**Adotado:**
+- Utilização da IA para traduzir o funcionamento do código Java do Spring/JDBC e guiar a execução dos testes pelo IntelliJ.
+- Refatoração e revisão da lógica da classe `ReconstrucaoService` para garantir que o replay zerasse a tabela e o checkpoint de forma atômica e determinística.
+- Criação do teste de integração `ReconstrucaoDeProjecaoTest.java`, garantindo que o reprocessamento do log reconstrói o estado exato da projeção, corrige edições indevidas no banco e consome novos fatos agendados.
+- Formatação final do arquivo `ADR-006-projecoes-e-replay.md` seguindo rigorosamente a estrutura, tom técnico e padrões dos ADRs anteriores da equipe.
+
+---
