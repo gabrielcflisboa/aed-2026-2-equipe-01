@@ -187,7 +187,7 @@ FROM projecao_checkpoint;
 
 ```
 servico-vendas     mvn -o test    Tests run: 5,  Failures: 0, Errors: 0   BUILD SUCCESS
-servico-ingressos  mvn -o test    Tests run: 16, Failures: 0, Errors: 0   BUILD SUCCESS
+servico-ingressos  mvn -o test    Tests run: 21, Failures: 0, Errors: 0   BUILD SUCCESS
 
 ```
 
@@ -199,7 +199,5 @@ servico-ingressos  mvn -o test    Tests run: 16, Failures: 0, Errors: 0   BUILD 
 |------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Pedro Assis Corrêa                 | ADR-005; event store (`evento_do_estoque`, versão como detector de concorrência); agregado `EstoqueDoSetor` e os quatro eventos; a suíte de testes de replay, idempotência e concorrência; correção dos bloqueadores de build herdados da aula 02; esta folha de entrega.                                     |
 | Amir Gabriel Dantas Santos Andrade | ADR-006; implementação da Projeção de Disponibilidade por Setor (`disponibilidade_por_setor`); repositório de checkpoint (`projecao_checkpoint`); motor de replay, loteamento e agendamento assíncrono (`ReconstrucaoService`); e a suíte de testes de integração da projeção (`ReconstrucaoDeProjecaoTest`). |
-| `<nome>`                           | `<a preencher pela equipe>`                                                                                                                                                                                                                                                                                   |
-| `<nome>`                           | `<a preencher pela equipe>`                                                                                                                                                                                                                                                                                   |
-| `<nome>`                           | `<a preencher pela equipe>`                                                                                                                                                                                                                                                                                   |
-| `<nome>`                           | `<a preencher pela equipe>`                                                                                                                                                                                                                                                                                   |
+
+Os demais integrantes da equipe não têm commit registrado nesta etapa.
