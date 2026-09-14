@@ -40,6 +40,15 @@ O `develop` não compilava nem subia antes desta entrega, e sem isso nada aqui s
   prometerem H2 em arquivo.
 - A cota por CPF passou a normalizar o documento. Antes, `000.000.000-00` e `00000000000` contavam como compradores
   diferentes.
+- O consumidor Kafka do `servico-ingressos` nunca processava uma reserva de verdade: `IngressoListener` declarava o
+  parâmetro do `@KafkaListener` já tipado (`IngressoReservadoEvent`), esperando que o `value-deserializer`
+  (`JacksonJsonDeserializer`) do `application.yml` convertesse a mensagem antes de entregá-la. Em runtime real (broker
+  de verdade, não o teste que chama o listener diretamente), a conversão não acontecia — a mensagem chegava como
+  `String` e o listener derrubava toda reserva com `MessageConversionException`, sem nenhum evento além dos três
+  `SetorAberto` no log. Corrigido lendo o payload como `String` e desserializando manualmente com `ObjectMapper`
+  (`tools.jackson.databind`, a API Jackson 3 que o Spring Boot 4.1 usa), o mesmo padrão já validado no publisher. Só
+  apareceu subindo os dois serviços com Kafka de verdade e enviando reservas reais — nenhum teste automatizado
+  exercita esse caminho, porque todos chamam o listener em processo.
 
 ---
 
@@ -191,6 +200,23 @@ servico-ingressos  mvn -o test    Tests run: 21, Failures: 0, Errors: 0   BUILD 
 
 ```
 
+Além da suíte automatizada, os dois serviços foram subidos de verdade (Kafka via `docker compose`) e exercitados por
+HTTP: seis reservas de CAMAROTE (capacidade 20, quatro ingressos cada) resultaram em cinco `IngressoRetirado` e uma
+`ReservaRecusada`, confirmados direto no `evento_do_estoque`:
+
+```
+SEQUENCIA=4 STREAM_ID=SHOW-PUCMINAS-2026::CAMAROTE VERSAO=2 TIPO=IngressoRetirado  DADOS={"quantidade":4,...}
+SEQUENCIA=5 STREAM_ID=SHOW-PUCMINAS-2026::CAMAROTE VERSAO=3 TIPO=IngressoRetirado  DADOS={"quantidade":4,...}
+SEQUENCIA=6 STREAM_ID=SHOW-PUCMINAS-2026::CAMAROTE VERSAO=4 TIPO=IngressoRetirado  DADOS={"quantidade":4,...}
+SEQUENCIA=7 STREAM_ID=SHOW-PUCMINAS-2026::CAMAROTE VERSAO=5 TIPO=IngressoRetirado  DADOS={"quantidade":4,...}
+SEQUENCIA=8 STREAM_ID=SHOW-PUCMINAS-2026::CAMAROTE VERSAO=6 TIPO=IngressoRetirado  DADOS={"quantidade":4,...}
+SEQUENCIA=9 STREAM_ID=SHOW-PUCMINAS-2026::CAMAROTE VERSAO=7 TIPO=ReservaRecusada   DADOS={"quantidadePedida":4,"disponivelNoMomento":0,...}
+```
+
+E a projeção acompanhou: `disponibilidade_por_setor` fechou com `CAMAROTE: capacidade=20, retirados=20, disponivel=0`,
+e `projecao_checkpoint` avançou até a sequência 9. Foi nesse teste real que o bug do deserializer do Kafka (acima)
+apareceu e foi corrigido.
+
 ---
 
 ## Quem fez o quê
@@ -199,5 +225,7 @@ servico-ingressos  mvn -o test    Tests run: 21, Failures: 0, Errors: 0   BUILD 
 |------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Pedro Assis Corrêa                 | ADR-005; event store (`evento_do_estoque`, versão como detector de concorrência); agregado `EstoqueDoSetor` e os quatro eventos; a suíte de testes de replay, idempotência e concorrência; correção dos bloqueadores de build herdados da aula 02; esta folha de entrega.                                     |
 | Amir Gabriel Dantas Santos Andrade | ADR-006; implementação da Projeção de Disponibilidade por Setor (`disponibilidade_por_setor`); repositório de checkpoint (`projecao_checkpoint`); motor de replay, loteamento e agendamento assíncrono (`ReconstrucaoService`); e a suíte de testes de integração da projeção (`ReconstrucaoDeProjecaoTest`). |
+| Maria Luísa Lacerda                | Correções em [`docs/contrato.md`](../contrato.md): documentação do evento de reserva liberada e ajustes no contrato do evento de ingresso reservado.                                                                                                                                                        |
+| Gabriel Campos Ferreira Lisboa     | Recuperação desta entrega depois de um revert acidental do merge de `feat/aula05`; correção do nome do arquivo `ADR-006` e de 18 links quebrados em `aula-05.md`; verificação por testes automatizados e execução manual dos dois serviços com Kafka real, que revelou e corrigiu um `IngressoListener` que não processava nenhuma reserva em runtime (o deserializer configurado não convertia a mensagem — nenhum teste automatizado cobria esse caminho); criação da tag `entrega-aula-05`.                                                                                                                                                    |
 
 Os demais integrantes da equipe não têm commit registrado nesta etapa.

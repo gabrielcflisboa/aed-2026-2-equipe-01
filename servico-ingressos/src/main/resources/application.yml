@@ -32,12 +32,7 @@ spring:
       auto-offset-reset: earliest
       enable-auto-commit: false
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
-      properties:
-        # O publisher nao anuncia o tipo Java: este lado declara a propria classe.
-        spring.json.value.default.type: br.pucminas.aed.ingressos.domain.IngressoReservadoEvent
-        spring.json.trusted.packages: br.pucminas.aed.ingressos.domain
-        spring.json.use.type.headers: false
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     listener:
       ack-mode: manual
 
