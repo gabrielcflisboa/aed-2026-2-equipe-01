@@ -126,48 +126,48 @@ FROM projecao_checkpoint;
 
 **Decisão**
 
-* [ADR-005, event sourcing no estoque](https://www.google.com/search?q=../adr/ADR-005-event-sourcing.md)
-* [ADR-006, projeções e reconstrução de estado](https://www.google.com/search?q=../adr/ADR-006-projecoes-e-replay.md)
-* [ADR-002, domínio do projeto](https://www.google.com/search?q=../adr/ADR-002-dominio-do-projeto.md)
-* [Contrato do evento de mensageria](https://www.google.com/search?q=../contrato.md)
+* [ADR-005, event sourcing no estoque](../adr/ADR-005-event-sourcing.md)
+* [ADR-006, projeções e reconstrução de estado](../adr/ADR-006-projecoes-e-replay.md)
+* [ADR-002, domínio do projeto](../adr/ADR-002-dominio-do-projeto.md)
+* [Contrato do evento de mensageria](../contrato.md)
 
 **O agregado e os fatos**, em `servico-ingressos/src/main/java/br/pucminas/aed/ingressos/domain/`
 
-* [EstoqueDoSetor.java](https://www.google.com/search?q=../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/domain/EstoqueDoSetor.java),
+* [EstoqueDoSetor.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/domain/EstoqueDoSetor.java),
   replay e decisão
-* [StreamDoEstoqueVO.java](https://www.google.com/search?q=../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/domain/StreamDoEstoqueVO.java),
+* [StreamDoEstoqueVO.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/domain/StreamDoEstoqueVO.java),
   a escolha do agregado em código
-* [EstoqueEvent.java](https://www.google.com/search?q=../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/domain/EstoqueEvent.java)
+* [EstoqueEvent.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/domain/EstoqueEvent.java)
   e os quatro fatos
-* [EventoDoEstoqueRepository.java](https://www.google.com/search?q=../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/domain/EventoDoEstoqueRepository.java),
+* [EventoDoEstoqueRepository.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/domain/EventoDoEstoqueRepository.java),
   o contrato sem `UPDATE` e sem `DELETE`
 
 **O event store e a projeção**, em `.../ingressos/service/`
 
-* [EventoDoEstoqueJdbcRepository.java](https://www.google.com/search?q=../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/EventoDoEstoqueJdbcRepository.java),
+* [EventoDoEstoqueJdbcRepository.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/EventoDoEstoqueJdbcRepository.java),
   o `INSERT` e a colisão de versão
-* [IngressoService.java](https://www.google.com/search?q=../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/IngressoService.java),
+* [IngressoService.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/IngressoService.java),
   dedup, replay, decisão, append
-* [DisponibilidadeProjecaoService.java](https://www.google.com/search?q=../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/DisponibilidadeProjecaoService.java),
+* [DisponibilidadeProjecaoService.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/DisponibilidadeProjecaoService.java),
   a atualização da visão de leitura
-* [ProjecaoCheckpointJdbcRepository.java](https://www.google.com/search?q=../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/ProjecaoCheckpointJdbcRepository.java),
+* [ProjecaoCheckpointJdbcRepository.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/ProjecaoCheckpointJdbcRepository.java),
   persistência do ponteiro de leitura
-* [ReconstrucaoService.java](https://www.google.com/search?q=../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/ReconstrucaoService.java),
+* [ReconstrucaoService.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/ReconstrucaoService.java),
   orquestração de replay e tarefas `@Scheduled`
-* [AberturaDeSetoresService.java](https://www.google.com/search?q=../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/AberturaDeSetoresService.java),
+* [AberturaDeSetoresService.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/AberturaDeSetoresService.java),
   a capacidade entrando como fato
-* [schema.sql](https://www.google.com/search?q=../../servico-ingressos/src/main/resources/schema.sql), o que é log, o
+* [schema.sql](../../servico-ingressos/src/main/resources/schema.sql), o que é log, o
   que é projeção e o que é memória de entrega
 
 **Testes**
 
-* [EventoDoEstoqueRepositoryTest.java](https://www.google.com/search?q=../../servico-ingressos/src/test/java/br/pucminas/aed/ingressos/service/EventoDoEstoqueRepositoryTest.java),
+* [EventoDoEstoqueRepositoryTest.java](../../servico-ingressos/src/test/java/br/pucminas/aed/ingressos/service/EventoDoEstoqueRepositoryTest.java),
   ordem, versão e concorrência
-* [EstoqueDoSetorTest.java](https://www.google.com/search?q=../../servico-ingressos/src/test/java/br/pucminas/aed/ingressos/domain/EstoqueDoSetorTest.java),
+* [EstoqueDoSetorTest.java](../../servico-ingressos/src/test/java/br/pucminas/aed/ingressos/domain/EstoqueDoSetorTest.java),
   o replay puro, sem banco
-* [IngressoServiceIdempotenciaTest.java](https://www.google.com/search?q=../../servico-ingressos/src/test/java/br/pucminas/aed/ingressos/service/IngressoServiceIdempotenciaTest.java),
+* [IngressoServiceIdempotenciaTest.java](../../servico-ingressos/src/test/java/br/pucminas/aed/ingressos/service/IngressoServiceIdempotenciaTest.java),
   mesmo evento 3x, efeito único
-* [ReconstrucaoDeProjecaoTest.java](https://www.google.com/search?q=../../servico-ingressos/src/test/java/br/pucminas/aed/ingressos/service/ReconstrucaoDeProjecaoTest.java),
+* [ReconstrucaoDeProjecaoTest.java](../../servico-ingressos/src/test/java/br/pucminas/aed/ingressos/service/ReconstrucaoDeProjecaoTest.java),
   garantia de replay, reconstrução idempotente e agendamento
 
 ---
