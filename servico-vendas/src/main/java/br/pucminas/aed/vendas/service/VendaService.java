@@ -1,14 +1,12 @@
 package br.pucminas.aed.vendas.service;
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.header.Headers;
-import org.springframework.kafka.core.KafkaTemplate;
+
 import org.springframework.stereotype.Service;
+
 import br.pucminas.aed.vendas.VendaConfig;
 import br.pucminas.aed.vendas.domain.IngressoReservadoEvent;
 import br.pucminas.aed.vendas.domain.ItemDoIngressoVO;
@@ -19,19 +17,11 @@ import br.pucminas.aed.vendas.domain.SolicitacaoDeReservaVO;
 @Service
 public class VendaService {
 
-    /** Uma grafia so, versionada: dominio.entidade.fato.v1. */
-    private static final String TIPO_DO_EVENTO = "vendas.ingresso.reservado.v1";
-    private static final String ORIGEM_DO_EVENTO = "/servico-vendas";
-
-    private final KafkaTemplate<String, IngressoReservadoEvent> clienteDoBroker;
     private final VendaCallbackService vendaCallbackService;
     private final VendaConfig vendaConfig;
     private final ConcurrentMap<String, Integer> ingressosPorCpf = new ConcurrentHashMap<>();
 
-    public VendaService(KafkaTemplate<String, IngressoReservadoEvent> clienteDoBroker,
-            VendaCallbackService vendaCallbackService,
-            VendaConfig vendaConfig) {
-        this.clienteDoBroker = clienteDoBroker;
+    public VendaService(VendaCallbackService vendaCallbackService, VendaConfig vendaConfig) {
         this.vendaCallbackService = vendaCallbackService;
         this.vendaConfig = vendaConfig;
     }
@@ -40,7 +30,8 @@ public class VendaService {
         var pedidoPorSetor = agruparPorSetor(solicitacao.getItens());
 
         conferirDisponibilidade(pedidoPorSetor);
-        consumirCotaDoCpf(solicitacao.getCpfComprador(), totalPedido(pedidoPorSetor));
+        consumirCotaDoCpf(VendaConfig.normalizarCpf(solicitacao.getCpfComprador()),
+                totalPedido(pedidoPorSetor));
 
         var evento = IngressoReservadoEvent.novo(
                 solicitacao.getCompraId(),
@@ -48,10 +39,7 @@ public class VendaService {
                 solicitacao.getEvento(),
                 solicitacao.getItens());
 
-        var registro = new ProducerRecord<>(vendaConfig.getTopico(), evento.getEvento(), evento);
-        envelopar(registro.headers(), evento);
-
-        vendaCallbackService.registrar(clienteDoBroker.send(registro), evento.getEventoId());
+        vendaCallbackService.publicar(evento, evento.getEvento());
 
         return evento;
     }
@@ -90,17 +78,5 @@ public class VendaService {
 
     private int totalPedido(Map<String, Integer> pedidoPorSetor) {
         return pedidoPorSetor.values().stream().mapToInt(Integer::intValue).sum();
-    }
-
-    private void envelopar(Headers cabecalhos, IngressoReservadoEvent evento) {
-        cabecalhos.add("ce_specversion", texto("1.0"));
-        cabecalhos.add("ce_id", texto(evento.getEventoId()));
-        cabecalhos.add("ce_source", texto(ORIGEM_DO_EVENTO));
-        cabecalhos.add("ce_type", texto(TIPO_DO_EVENTO));
-        cabecalhos.add("ce_time", texto(Instant.now().toString()));
-    }
-
-    private byte[] texto(String valor) {
-        return valor.getBytes(StandardCharsets.UTF_8);
     }
 }
