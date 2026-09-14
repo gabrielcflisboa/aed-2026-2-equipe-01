@@ -19,15 +19,21 @@ public class IngressoListener {
         this.ingressoService = ingressoService;
     }
 
-    @KafkaListener(topics = "${app.topico}", groupId = "${spring.kafka.consumer.group-id}")
-    public void receber(IngressoReservadoEvent evento, Acknowledgment ack) {
+    @KafkaListener(topics = "${spring.kafka.consumer.topic}", groupId = "${spring.kafka.consumer.group-id}")
+    public void receber(
+            IngressoReservadoEvent evento,
+            Acknowledgment ack) {
 
-        logger.info("recebido: eventoId={} evento={}", evento.getEventoId(), evento.getEvento());
+        logger.info(
+                "Recebendo evento de ingresso reservado. eventoId={}",
+                evento.getEventoId());
 
-        this.ingressoService.processarReserva(evento);
+        ingressoService.processarReserva(evento);
 
         ack.acknowledge();
 
-        logger.info("processado e confirmado: eventoId={}", evento.getEventoId());
+        logger.info(
+                "Evento de ingresso reservado processado. eventoId={}",
+                evento.getEventoId());
     }
 }
