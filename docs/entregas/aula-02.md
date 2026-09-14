@@ -8,10 +8,8 @@
 - Base do publisher (`servico-vendas`): evento `IngressoReservadoEvent`
   (particípio, imutável, `eventoId` próprio, data em ISO-8601) e
   `ItemDoIngressoVO`, mais `VendaConfig` (KafkaTemplate).
-- `VendaService`: regra de limite por CPF e capacidade, chave de partição por
-  evento e publicação dos fatos de reserva e compensação.
-- `VendaCallbackService`: envelope CloudEvents 1.0 binário e tratamento
-  assíncrono do retorno de `send()`.
+- `<preencher: VendaService — regra de negócio, chave de partição, envelope CloudEvents>`
+- `<preencher: VendaCallbackService — tratamento do retorno do send()>`
 - `VendaController`: criado o endpoint `POST /vendas/reservas`, responsável por
   receber a solicitação de reserva, delegar o processamento ao `VendaService` e
   retornar `202 Accepted`, indicando que o efeito da reserva será processado de
@@ -20,9 +18,8 @@
   `IngressoReservadoEvent` no consumidor, independente da classe existente no
   publisher, com menos campos e tolerância a campos desconhecidos na
   desserialização.
-- Consumer idempotente: débito/devolução do estoque e deduplicação por
-  `eventoId` no mesmo commit; confirmação de offset depois do commit.
-- Teste de idempotência: entrega cada evento três vezes e verifica efeito único.
+- `<preencher: consumer servico-ingressos aplicando o efeito e a compensação>`
+- `<preencher: teste de idempotência — mesmo evento entregue 3x, efeito único>`
 
 ## Onde está cada coisa
 
@@ -30,26 +27,24 @@
 - Padrões de pacote/nomenclatura: [AGENTS.md](../../AGENTS.md)
 - Publisher: [servico-vendas](../../servico-vendas)
   - Evento: [IngressoReservadoEvent.java](../../servico-vendas/src/main/java/br/pucminas/aed/vendas/domain/IngressoReservadoEvent.java)
-  - [VendaService.java](../../servico-vendas/src/main/java/br/pucminas/aed/vendas/service/VendaService.java) · [VendaCallbackService.java](../../servico-vendas/src/main/java/br/pucminas/aed/vendas/service/VendaCallbackService.java) · [VendaController.java](../../servico-vendas/src/main/java/br/pucminas/aed/vendas/controller/VendaController.java)
+  - `<preencher: VendaService.java>` · `<preencher: VendaCallbackService.java>` · [VendaController.java](../..servico-vendas/src/test/java/br/pucminas/aed/vendas/VendaController.java)
 - Consumer: [servico-ingressos](../../servico-ingressos)
-  - [IngressoListener.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/controller/IngressoListener.java) · [IngressoService.java](../../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/IngressoService.java)
 - Registro de uso de IA: [docs/IA.md](../IA.md)
-- [Teste de idempotência](../../servico-ingressos/src/test/java/br/pucminas/aed/ingressos/IngressoListenerIdempotenciaTest.java)
+- `<preencher: link direto para o teste de idempotência, ex. servico-ingressos/src/test/...>`
 
 ## Por onde começar a leitura
 
 1. ADR-002, para entender por que este domínio e como ele atende os quatro critérios.
 2. [IngressoReservadoEvent.java](../../servico-vendas/src/main/java/br/pucminas/aed/vendas/domain/IngressoReservadoEvent.java)
    em `servico-vendas`, para ver o fato modelado (imutável, sem `record`, `eventoId` próprio).
-3. `VendaService.java`, para ver a regra de decisão, o envelope CloudEvents e a chave de partição.
-4. `IngressoListener` e `IngressoService` em `servico-ingressos`, para ver a idempotência
+3. `<preencher: VendaService.java>`, para ver a regra de decisão, o envelope CloudEvents e a chave de partição.
+4. `<preencher: nome do listener/service>` em `servico-ingressos`, para ver a idempotência
    (dedup e efeito no mesmo commit, ack depois do commit).
-5. `IngressoListenerIdempotenciaTest`, que entrega o mesmo evento três vezes.
+5. O teste que entrega o mesmo evento três vezes.
 
 ## Como rodar
 
-Ver [README.md](../../README.md#como-rodar-máquina-limpa) e
-[Como testar manualmente](../../README.md#como-testar-manualmente). Resumo:
+Ver [README.md](../../README.md#como-rodar-máquina-limpa) — resumo:
 
 ```powershell
 docker compose up -d
@@ -61,9 +56,10 @@ cd servico-vendas; ./mvnw.cmd spring-boot:run
 
 | Integrante                         | O que fez |
 |------------------------------------|---|
-| Gabriel Campos Ferreira Lisboa     | ADR-002, estrutura inicial do repositório, `docker-compose.yml`, base do publisher (`servico-vendas`: evento, VO, config); correções pendentes do fluxo completo: publicação CloudEvents, compensação, consumer idempotente, teste de entrega tripla, configuração de portas/Compose e documentação de execução e teste manual. |
+| Gabriel Campos Ferreira Lisboa     | ADR-002, estrutura inicial do repositório, `docker-compose.yml`, base do publisher (`servico-vendas`: evento, VO, config) |
 | Amir Gabriel Dantas Santos Andrade | Implementação da persistência no `servico-ingressos`: configuração do banco H2 em arquivo, criação automática das tabelas via `schema.sql`, implementação do `IngressoJdbcRepository` (`JdbcTemplate`) para controle de estoque por setor e deduplicação de eventos, e suite de testes de integração (`IngressoRepositoryTest`). |
-| Maria Luísa Lacerda | `VendaController`, endpoint `POST /vendas/reservas` com resposta `202 Accepted` e representação tolerante de `IngressoReservadoEvent` no consumer. |
-| Pedro Assis Corrêa | Envelope CloudEvents e tratamento assíncrono do retorno de `send()`. |
-| Thiago Felipe dos Santos | Contribuições registradas no histórico Git da equipe. |
-| Willian dos Santos Miranda | Contribuições registradas no histórico Git da equipe. |
+| Maria Luisa Lacerda | Implementação do item 3: `VendaController`, com endpoint `POST /vendas/reservas` e resposta `202 Accepted`; criação da representação própria de `IngressoReservadoEvent` no `servico-ingressos`, com tolerância a campos desconhecidos. || `<nome>` | `<preencher>` |
+| `<nome>`                           | `<preencher>` |
+| `<nome>`                           | `<preencher>` |
+| `<nome>`                           | `<preencher>` |
+| `<nome>`                           | `<preencher>` |

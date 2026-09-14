@@ -10,7 +10,6 @@
 | Pedro Assis Corrêa                     | `256357`      |
 | Thiago Felipe dos Santos               | `258087`      |
 | Willian dos Santos Miranda             | `258173`      |
-| `<nome completo>`                      | `<matrícula>` |
 
 ## Domínio
 
@@ -22,10 +21,20 @@ Detalhes e critérios atendidos em
 
 ## Estrutura
 
-- `servico-vendas` — publisher: recebe a solicitação de reserva e publica `IngressoReservadoEvent`.
-- `servico-ingressos` — consumer idempotente: aplica o efeito no estoque por setor e trata a compensação.
+- `servico-vendas` — publisher: recebe a solicitação de reserva, valida limite por CPF
+  e disponibilidade, e publica `IngressoReservadoEvent`. Não persiste nada.
+- `servico-ingressos` — consumer idempotente com **event sourcing**: o estoque não é
+  uma tabela, é derivado de um log append-only (`evento_do_estoque`). O agregado é
+  `EstoqueDoSetor`, um stream por `(evento, setor)`, e a versão do stream é o que
+  detecta concorrência. Toda leitura do estoque é uma releitura do stream.
 
-Padrões de pacote, nomenclatura e idempotência em [AGENTS.md](AGENTS.md).
+Documentos:
+
+- [ADR-002 — domínio do projeto](docs/adr/ADR-002-dominio-do-projeto.md)
+- [ADR-005 — event sourcing no estoque](docs/adr/ADR-005-event-sourcing.md)
+- [Contrato do evento `IngressoReservadoEvent`](docs/contrato.md)
+- [Entrega da aula 05](docs/entregas/aula-05.md) — como rodar e como conferir o log
+- Padrões de pacote, nomenclatura e idempotência em [AGENTS.md](AGENTS.md)
 
 ## Como rodar (máquina limpa)
 
@@ -35,7 +44,7 @@ Pré-requisitos: JDK 21, Docker. O Maven é resolvido pelo wrapper (`mvnw`/`mvnw
    ```powershell
    docker compose up -d
    ```
-2. Em um terminal, suba o consumidor na porta `8082`:
+2. Em um terminal, suba o consumidor:
    ```powershell
    cd servico-ingressos
    ./mvnw.cmd spring-boot:run
@@ -45,69 +54,38 @@ Pré-requisitos: JDK 21, Docker. O Maven é resolvido pelo wrapper (`mvnw`/`mvnw
    cd servico-vendas
    ./mvnw.cmd spring-boot:run
    ```
-4. Dispare uma reserva de ingresso:
+4. Dispare uma reserva de ingresso (ajustar payload/endpoint conforme `VendaController`):
    ```powershell
-   $reserva = @{ compraId = "compra-demo-001"; cpfComprador = "000.000.000-00"; evento = "show-demo"; itens = @(@{ setor = "PISTA"; quantidade = 2; precoUnitario = 180.00 }) } | ConvertTo-Json -Depth 4
-   Invoke-RestMethod http://localhost:8080/vendas/reservas -Method Post -ContentType "application/json" -Body $reserva
+   curl -X POST http://localhost:8080/vendas/reservas -H "Content-Type: application/json" -d '@exemplo-reserva.json'
    ```
-5. Para simular a recusa de pagamento e devolver o estoque:
-   ```powershell
-   Invoke-RestMethod http://localhost:8080/vendas/reservas/compra-demo-001/compensacoes -Method Post
-   ```
-6. Acompanhe os dois tópicos e os cabeçalhos `ce_*` no Kafka UI: http://localhost:8081
+5. Acompanhe as mensagens e os cabeçalhos `ce_*` no Kafka UI: http://localhost:8081
 
-O consumer grava H2 em `./data/ingressos`. O teste
-`IngressoListenerIdempotenciaTest` entrega a mesma reserva e a mesma compensação
-três vezes e verifica que cada uma altera o estoque somente uma vez.
-
-## Como testar manualmente
-
-Com Kafka, consumer e publisher já em execução nos três terminais acima, execute
-em um quarto PowerShell:
-
-```powershell
-$compraId = "compra-manual-001"
-$reserva = @{
-   compraId = $compraId
-   cpfComprador = "000.000.000-00"
-   evento = "show-manual"
-   itens = @(
-      @{ setor = "PISTA"; quantidade = 2; precoUnitario = 180.00 }
-   )
-} | ConvertTo-Json -Depth 4
-
-Invoke-RestMethod http://localhost:8080/vendas/reservas `
-   -Method Post `
-   -ContentType "application/json" `
-   -Body $reserva
-```
-
-O publisher responde `202 Accepted` com `eventoId` e `compraId`. No terminal do
-consumer devem aparecer `Recebendo evento de ingresso reservado` e `Evento de
-ingresso reservado processado`.
-
-Simule a recusa do pagamento e confirme a compensação:
-
-```powershell
-Invoke-RestMethod "http://localhost:8080/vendas/reservas/$compraId/compensacoes" `
-   -Method Post
-```
-
-O consumer deve registrar o recebimento e o processamento da compensação. No
-Kafka UI, abra `vendas.ingresso.reservado.v1` e confira os headers
-`ce_specversion`, `ce_id`, `ce_source`, `ce_type` e `ce_time`; o corpo deve
-exibir `reservadoEm` em ISO-8601. A prova da redelivery ocorre com:
-
-```powershell
-cd servico-ingressos
-.\mvnw.cmd test
-```
-
-O teste `IngressoListenerIdempotenciaTest` entrega a mesma reserva e a mesma
-compensação três vezes e verifica um único débito e uma única devolução.
+No arranque, o `servico-ingressos` abre os setores de `app.abertura` gravando um
+`SetorAbertoEvent` no log de cada stream — não há tabela de estoque semeada por
+`data.sql`, porque estado inserido direto na tabela não sobreviveria a um replay.
 
 Para derrubar tudo (inclusive volumes):
 
 ```powershell
 docker compose down -v
+```
+
+## Conferir o event store
+
+```powershell
+cd servico-ingressos
+./mvnw.cmd test -Dtest=EventoDoEstoqueRepositoryTest
+```
+
+Os eventos saem do stream na ordem em que entraram, a versão é por stream e não
+global, e duas gravações feitas sobre a mesma leitura colidem: a segunda vira
+`ConcorrenciaNoStreamException`. É a versão detectando concorrência, sem lock. O
+que olhar direto no banco está em
+[docs/entregas/aula-05.md](docs/entregas/aula-05.md#conferir-o-log).
+
+## Testes
+
+```powershell
+cd servico-vendas;    ./mvnw.cmd test   # 5 testes
+cd servico-ingressos; ./mvnw.cmd test   # 15 testes
 ```

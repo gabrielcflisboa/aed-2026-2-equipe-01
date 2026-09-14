@@ -1,0 +1,50 @@
+app:
+  topico: vendas.ingresso.reservado.v1
+
+  # Vira SetorAbertoEvent no log na primeira subida. Nao e tabela de estoque.
+  abertura:
+    show-pucminas-2026:
+      PISTA: 100
+      CAMAROTE: 20
+      ARQUIBANCADA: 50
+
+  projecoes:
+    # Teto da defasagem das telas, em ms. Ver docs/entregas/aula-05.md.
+    intervalo: 1000
+
+spring:
+  application:
+    name: servico-ingressos
+
+  datasource:
+    url: jdbc:h2:file:./data/ingressos;AUTO_SERVER=TRUE
+    username: sa
+    password: ""
+
+  sql:
+    init:
+      mode: always
+
+  kafka:
+    bootstrap-servers: localhost:19092
+    consumer:
+      group-id: servico-ingressos
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+      properties:
+        # O publisher nao anuncia o tipo Java: este lado declara a propria classe.
+        spring.json.value.default.type: br.pucminas.aed.ingressos.domain.IngressoReservadoEvent
+        spring.json.trusted.packages: br.pucminas.aed.ingressos.domain
+        spring.json.use.type.headers: false
+    listener:
+      ack-mode: manual
+
+logging:
+  level:
+    root: WARN
+    br.pucminas.aed: INFO
+    org.springframework.boot: INFO
+  pattern:
+    console: "%d{HH:mm:ss} %-5level %-28logger{0} : %msg%n"
