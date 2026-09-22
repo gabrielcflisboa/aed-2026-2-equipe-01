@@ -5,7 +5,7 @@
 | Nome completo                          | Matrícula     |
 | -------------------------------------- | ------------- |
 | Gabriel Campos Ferreira Lisboa (líder) | `255696`      |
-| Maria Luísa Lacerda                    | `1418550`     |
+| Maria Luísa Lacerda                    | `257115 `     |
 | Amir Gabriel Dantas Santos Andrade     | `1666035`     |
 | Pedro Assis Corrêa                     | `256357`      |
 | Thiago Felipe dos Santos               | `258087`      |
@@ -27,12 +27,16 @@ Detalhes e critérios atendidos em
   uma tabela, é derivado de um log append-only (`evento_do_estoque`). O agregado é
   `EstoqueDoSetor`, um stream por `(evento, setor)`, e a versão do stream é o que
   detecta concorrência. Toda leitura do estoque é uma releitura do stream.
+  Roda também, no mesmo processo, um segundo consumidor com `group.id` próprio
+  (`AgregadorDeReservasListener`) que agrega reservas por setor/evento em janelas de
+  1 minuto — ver [docs/entregas/aula-03.md](docs/entregas/aula-03.md).
 
 Documentos:
 
 - [ADR-002 — domínio do projeto](docs/adr/ADR-002-dominio-do-projeto.md)
 - [ADR-005 — event sourcing no estoque](docs/adr/ADR-005-event-sourcing.md)
 - [Contrato do evento `IngressoReservadoEvent`](docs/contrato.md)
+- [Entrega da aula 03](docs/entregas/aula-03.md) — agregador por janela de tempo
 - [Entrega da aula 05](docs/entregas/aula-05.md) — como rodar e como conferir o log
 - Padrões de pacote, nomenclatura e idempotência em [AGENTS.md](AGENTS.md)
 
@@ -59,6 +63,11 @@ Pré-requisitos: JDK 21, Docker. O Maven é resolvido pelo wrapper (`mvnw`/`mvnw
    curl -X POST http://localhost:8080/vendas/reservas -H "Content-Type: application/json" -d '@exemplo-reserva.json'
    ```
 5. Acompanhe as mensagens e os cabeçalhos `ce_*` no Kafka UI: http://localhost:8081
+6. Consulte a agregação por setor/evento (o `servico-ingressos` já processa as
+   reservas nos dois consumidores assim que sobe, não precisa de passo extra):
+   ```powershell
+   Invoke-RestMethod "http://localhost:8082/agregacao/reservas-por-setor?evento=show-demo"
+   ```
 
 No arranque, o `servico-ingressos` abre os setores de `app.abertura` gravando um
 `SetorAbertoEvent` no log de cada stream — não há tabela de estoque semeada por
@@ -87,5 +96,5 @@ que olhar direto no banco está em
 
 ```powershell
 cd servico-vendas;    ./mvnw.cmd test   # 5 testes
-cd servico-ingressos; ./mvnw.cmd test   # 15 testes
+cd servico-ingressos; ./mvnw.cmd test   # 24 testes
 ```

@@ -2,6 +2,7 @@ package br.pucminas.aed.ingressos.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -155,6 +156,6 @@ class ReconstrucaoDeProjecaoTest {
 
     private static IngressoReservadoEvent reserva(UUID eventoId, String setor, int quantidade) {
         return new IngressoReservadoEvent(eventoId, EVENTO,
-                List.of(new ItemDoIngressoVO(setor, quantidade)));
+                List.of(new ItemDoIngressoVO(setor, quantidade)), Instant.now());
     }
 }

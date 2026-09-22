@@ -1,5 +1,11 @@
 app:
   topico: vendas.ingresso.reservado.v1
+  topico-reservas: vendas.ingresso.reservado.v1
+
+  # Aula 03: agregador com group.id proprio, no mesmo topico de reservas.
+  agregador:
+    group-id: servico-ingressos-agregador-reservas
+    tamanho-da-janela-em-segundos: 60
 
   # Vira SetorAbertoEvent no log na primeira subida. Nao e tabela de estoque.
   abertura:
@@ -11,6 +17,9 @@ app:
   projecoes:
     # Teto da defasagem das telas, em ms. Ver docs/entregas/aula-05.md.
     intervalo: 1000
+
+server:
+  port: 8082
 
 spring:
   application:

@@ -1,5 +1,10 @@
 app:
   topico: vendas.ingresso.reservado.v1
+  topico-reservas: vendas.ingresso.reservado.v1
+
+  agregador:
+    group-id: servico-ingressos-agregador-teste
+    tamanho-da-janela-em-segundos: 60
 
   # Sem `abertura`: cada teste abre os setores que usa. Nao declarar a chave e
   # proposital, porque `abertura: {}` chega ao binder como a string "{}".
