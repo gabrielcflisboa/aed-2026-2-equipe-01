@@ -55,19 +55,6 @@ exceção lançada dentro de callback assíncrona não chegaria ao cliente HTTP 
 
 ---
 
-## Aula 05
-
-### Pedro Assis Corrêa (256357): event sourcing do estoque
-
-Ferramenta: Claude (Claude Code).
-Arquivos afetados: todo o `servico-ingressos`, com agregado, event store e
-testes; [`ADR-005`](adr/ADR-005-event-sourcing.md);
-[`aula-05.md`](entregas/aula-05.md); e correções de bloqueadores em
-[`VendaService.java`](../servico-vendas/src/main/java/br/pucminas/aed/vendas/service/VendaService.java)
-e [`VendaConfig.java`](../servico-vendas/src/main/java/br/pucminas/aed/vendas/VendaConfig.java).
-
----
-
 ## Aula 03
 
 ### Gabriel Campos Ferreira Lisboa (255696) — agregador por janela de tempo
@@ -102,6 +89,91 @@ agregador passou a declarar `reservadoEm`. Isso torna o resultado da
 agregação determinístico sob reprocessamento, o que o teste
 `AgregacaoDeReservasServiceTest` confirma diretamente ao gravar eventos fora
 de ordem de chegada e verificar que cada um cai na janela correta.
+
+---
+
+### Amir Gabriel Dantas Santos Andrade (1666035) — compensação por pagamento recusado
+
+Ferramenta: Claude (Claude Code).
+Arquivos afetados: [`GatewayDePagamentoService.java`](../servico-vendas/src/main/java/br/pucminas/aed/vendas/service/GatewayDePagamentoService.java),
+[`VendaCompensacaoCallbackService.java`](../servico-vendas/src/main/java/br/pucminas/aed/vendas/service/VendaCompensacaoCallbackService.java),
+[`VendaService.java`](../servico-vendas/src/main/java/br/pucminas/aed/vendas/service/VendaService.java),
+[`VendaController.java`](../servico-vendas/src/main/java/br/pucminas/aed/vendas/controller/VendaController.java),
+[`VendaConfig.java`](../servico-vendas/src/main/java/br/pucminas/aed/vendas/VendaConfig.java),
+[`IngressoService.java`](../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/IngressoService.java),
+[`IngressoListener.java`](../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/controller/IngressoListener.java),
+[`contrato.md`](contrato.md) e [`aula-03.md`](entregas/aula-03.md).
+
+---
+
+#### Interação 1 — como publicar o evento de compensação
+
+**Pedido:** ligar o `IngressoReservaCompensadaEvent` ao Kafka, já que o `KafkaTemplate` existente era
+`KafkaTemplate<String, IngressoReservadoEvent>`.
+
+**Sugerido:** generalizar para um único `KafkaTemplate<String, Object>`, com tópico, `ce_type`, id e
+instante virando parâmetros do `publicar(...)`, porque o Kafka só transporta bytes e a tipagem existe
+apenas no compilador Java.
+
+**Aceito:** a explicação de que a tipagem não existe no Kafka, só no lado do `servico-vendas`, e portanto
+não centraliza nada nem é risco entre serviços.
+
+**RECUSADO:** o `KafkaTemplate<String, Object>` genérico. A equipe preferiu o padrão que o projeto já usa
+(um template tipado por evento): dá segurança em tempo de compilação, sabemos exatamente qual evento cada
+serviço de publicação envia, e não dá para publicar o evento errado no tópico errado.
+
+**Adotado:** segundo bean `kafkaTemplateCompensacao` no `VendaConfig` e classe irmã
+`VendaCompensacaoCallbackService`. O `VendaCallbackService` e o teste dele não foram alterados.
+
+---
+
+#### Interação 2 — quem decide a recusa do pagamento
+
+**Pedido:** simular o pagamento recusado que dispara a compensação.
+
+**Sugerido:** endpoint `POST /vendas/reservas/{compraId}/compensacoes` chamando direto
+`VendaService.compensarPagamentoRecusado(compraId)`, que já assumia que a recusa aconteceu.
+
+**RECUSADO:** deixar a decisão de recusar dentro do `VendaService`. Um gateway de pagamento é um sistema
+externo; a lógica dele não pode morar na regra de negócio do `servico-vendas`, que deve apenas reagir a uma
+recusa ocorrida em outro lugar.
+
+**Adotado:** `GatewayDePagamentoService` simula o gateway e devolve o motivo; o controller liga as duas
+peças. O campo `motivo` passou a viajar no evento até o `IngressoDevolvidoEvent`, em vez de um texto fixo
+no consumidor. O `reservasAceitas` (mapa em memória) é a simplificação da simulação: num cenário real seria
+uma tabela de compras do próprio `servico-vendas`.
+
+---
+
+#### Interação 3 — identidade do evento de compensação e idempotência
+
+**Pedido:** consumir a compensação no `servico-ingressos` devolvendo o estoque.
+
+**Sugerido:** ao ler o código, a IA apontou dois problemas: o `contrato.md` mandava reusar o `eventoId` da
+reserva original no evento de compensação, e o `IngressoService.compensar(...)` não registrava deduplicação
+(registrar por item quebraria a partir do segundo item da mesma mensagem).
+
+**RECUSADO:** reaproveitar o `eventoId` da reserva. A tabela `evento_processado` usa `eventoId` como chave e
+é compartilhada; a compensação seria descartada como "já processada" e a devolução sumiria sem erro.
+
+**Adotado:** `eventoId` novo por compensação, com o `contrato.md` corrigido (seções 9 a 12 e 14, incluindo
+`compraId`, `evento`, `motivo` e `compensadoEm`). O `processarCompensacao(...)` registra a deduplicação uma
+vez por mensagem e reaproveita o `compensar(...)` por item. O teste entrega a mesma compensação 3 vezes e
+confere um único `IngressoDevolvido`. Verificado ponta a ponta com Kafka real: reserva, recusa, e o estoque
+voltou a 100.
+
+---
+
+## Aula 05
+
+### Pedro Assis Corrêa (256357): event sourcing do estoque
+
+Ferramenta: Claude (Claude Code).
+Arquivos afetados: todo o `servico-ingressos`, com agregado, event store e
+testes; [`ADR-005`](adr/ADR-005-event-sourcing.md);
+[`aula-05.md`](entregas/aula-05.md); e correções de bloqueadores em
+[`VendaService.java`](../servico-vendas/src/main/java/br/pucminas/aed/vendas/service/VendaService.java)
+e [`VendaConfig.java`](../servico-vendas/src/main/java/br/pucminas/aed/vendas/VendaConfig.java).
 
 ---
 

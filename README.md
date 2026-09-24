@@ -34,6 +34,7 @@ Detalhes e critérios atendidos em
 Documentos:
 
 - [ADR-002 — domínio do projeto](docs/adr/ADR-002-dominio-do-projeto.md)
+- [ADR-003 — contrato, agregador e compensação](docs/adr/ADR-003-contrato-agregador-e-compensacao.md)
 - [ADR-005 — event sourcing no estoque](docs/adr/ADR-005-event-sourcing.md)
 - [Contrato do evento `IngressoReservadoEvent`](docs/contrato.md)
 - [Entrega da aula 03](docs/entregas/aula-03.md) — agregador por janela de tempo
@@ -102,5 +103,5 @@ que olhar direto no banco está em
 
 ```powershell
 cd servico-vendas;    ./mvnw.cmd test   # 13 testes
-cd servico-ingressos; ./mvnw.cmd test   # 25 testes
+cd servico-ingressos; ./mvnw.cmd test   # 26 testes
 ```
