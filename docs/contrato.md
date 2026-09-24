@@ -163,7 +163,7 @@ No fluxo atual, a compensação informa ao `servico-ingressos` que as quantidade
 
 Assim como o evento de reserva, esse evento representa um **fato ocorrido no domínio**, e não um comando.
 
-O campo `eventoId` identifica a ocorrência da reserva relacionada à compensação e é utilizado pelo consumidor para controle de idempotência e deduplicação.
+O campo `eventoId` identifica a **ocorrência da compensação em si** — uma identidade própria e nova, distinta do `eventoId` da reserva que está sendo compensada, e distinta também do `compraId`. É essa identidade que o consumidor usa para controle de idempotência e deduplicação: se o `eventoId` da compensação reaproveitasse o `eventoId` da reserva original, a tabela de deduplicação (que usa `eventoId` como chave, compartilhada entre reserva e compensação) trataria a compensação como já processada — porque a reserva com aquele mesmo id já foi — e a devolução ao estoque seria ignorada silenciosamente.
 
 > **Observação de modelagem:** o nome `reserva-compensada` será mantido neste contrato para refletir o nome atualmente utilizado pela implementação. O feedback sobre a possibilidade de adotar um nome orientado ao fato de negócio, como `ReservaCancelada` ou `IngressoReservaLiberado`, deve ser tratado como uma decisão de evolução do domínio e do contrato, pois uma alteração desse tipo também impactaria produtor, consumidor, tipo do CloudEvent e tópico Kafka.
 
@@ -179,8 +179,12 @@ Os atributos do CloudEvents são enviados como headers da mensagem Kafka utiliza
 
 | Campo | Tipo | Obrigatório | Descrição |
 |---|---|---|---|
-| `eventoId` | `string (UUID)` | Sim | Identificador da ocorrência da reserva relacionada à compensação. Utilizado também para controle de idempotência e deduplicação. |
+| `eventoId` | `string (UUID)` | Sim | Identificador único da ocorrência da compensação. Identidade própria e nova, não o `eventoId` da reserva original. Utilizado também para controle de idempotência e deduplicação. |
+| `compraId` | `string` | Sim | Identificador da compra cuja reserva está sendo compensada. É por esse campo que o consumidor de negócio (não o de estoque) correlacionaria a compensação com a reserva original. |
+| `evento` | `string` | Sim | Identificador do evento de entretenimento ao qual os ingressos devolvidos pertencem. |
 | `itens` | `array<ItemDoIngressoVO>` | Sim | Lista dos itens de ingresso cujas quantidades devem ser devolvidas ao estoque. |
+| `motivo` | `string` | Sim | Motivo da compensação, em texto livre (ex.: recusa do pagamento pelo gateway externo). |
+| `compensadoEm` | `string (ISO-8601 date-time)` | Sim | Data e hora em que a compensação ocorreu no domínio — não a hora da reserva original, nem a hora em que o broker recebeu a mensagem. |
 
 ### 10.2 `ItemDoIngressoVO`
 
@@ -202,7 +206,9 @@ Exemplo fictício de payload:
 
 ```json
 {
-  "eventoId": "550e8400-e29b-41d4-a716-446655440000",
+  "eventoId": "660f9511-f3ac-52e5-b827-557766551111",
+  "compraId": "compra-1001",
+  "evento": "SHOW-2026-001",
   "itens": [
     {
       "setor": "PISTA",
@@ -214,11 +220,13 @@ Exemplo fictício de payload:
       "quantidade": 1,
       "precoUnitario": 300.00
     }
-  ]
+  ],
+  "motivo": "pagamento recusado pelo gateway (simulado)",
+  "compensadoEm": "2026-08-18T20:45:00Z"
 }
 ```
 
-O `eventoId` deve utilizar o mesmo identificador da ocorrência da reserva que está sendo compensada.
+Note que o `eventoId` deste exemplo (`660f...`) é diferente do `eventoId` do exemplo da reserva na seção 8 (`550e...`), mesmo os dois se referindo à mesma `compraId` — é exatamente essa a identidade própria que a seção 9 exige.
 
 Os dados apresentados são fictícios e servem apenas para demonstrar a estrutura do contrato.
 
@@ -238,7 +246,7 @@ Os atributos são transportados nos headers Kafka:
 | `type` | `ce_type` | Tipo do evento. Deve ser `vendas.ingresso.reserva-compensada.v1`. |
 | `time` | `ce_time` | Data e hora da ocorrência do fato de negócio, em formato ISO-8601. |
 
-O `ce_id` identifica o evento de compensação produzido, enquanto o `eventoId` no payload identifica a ocorrência da reserva relacionada à compensação. Esses identificadores não devem ser tratados como necessariamente equivalentes.
+O `ce_id` corresponde ao `eventoId` do payload — a identidade própria da compensação, igual ao padrão já usado no evento de reserva (seção 5). Nenhum dos dois é o `eventoId` da reserva original: essa referência é feita pelo `compraId`, não por um id de evento compartilhado.
 
 ---
 
@@ -258,7 +266,7 @@ Os consumidores dos eventos devem considerar a possibilidade de recebimento de u
 
 No caso do evento de reserva, o `eventoId` é utilizado como identificador da ocorrência para controle de eventos já processados.
 
-No caso da compensação, o `eventoId` identifica a reserva relacionada à devolução dos ingressos e também participa do controle de deduplicação do processamento.
+No caso da compensação, o `eventoId` é a identidade própria da ocorrência da compensação — não o `eventoId` da reserva original — e é ele que participa do controle de deduplicação do processamento. As duas tabelas de deduplicação são a mesma (chave `eventoId`, compartilhada entre reserva e compensação), então reaproveitar o `eventoId` da reserva faria a compensação ser descartada como já processada.
 
 O registro de processamento e o efeito de negócio devem ser realizados de forma consistente, evitando que uma mesma ocorrência seja aplicada repetidamente ao estoque.
 

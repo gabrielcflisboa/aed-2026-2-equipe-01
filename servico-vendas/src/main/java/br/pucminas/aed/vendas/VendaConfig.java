@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 
+import br.pucminas.aed.vendas.domain.IngressoReservaCompensadaEvent;
 import br.pucminas.aed.vendas.domain.IngressoReservadoEvent;
 
 @Configuration
@@ -23,6 +24,12 @@ public class VendaConfig {
     @Bean
     public KafkaTemplate<String, IngressoReservadoEvent> kafkaTemplate(
             ProducerFactory<String, IngressoReservadoEvent> producerFactory) {
+        return new KafkaTemplate<>(producerFactory);
+    }
+
+    @Bean
+    public KafkaTemplate<String, IngressoReservaCompensadaEvent> kafkaTemplateCompensacao(
+            ProducerFactory<String, IngressoReservaCompensadaEvent> producerFactory) {
         return new KafkaTemplate<>(producerFactory);
     }
 
