@@ -8,6 +8,8 @@ import java.util.concurrent.ConcurrentMap;
 import org.springframework.stereotype.Service;
 
 import br.pucminas.aed.vendas.VendaConfig;
+import br.pucminas.aed.vendas.domain.CompraNaoEncontradaException;
+import br.pucminas.aed.vendas.domain.IngressoReservaCompensadaEvent;
 import br.pucminas.aed.vendas.domain.IngressoReservadoEvent;
 import br.pucminas.aed.vendas.domain.ItemDoIngressoVO;
 import br.pucminas.aed.vendas.domain.LimiteDeIngressosExcedidoException;
@@ -18,11 +20,15 @@ import br.pucminas.aed.vendas.domain.SolicitacaoDeReservaVO;
 public class VendaService {
 
     private final VendaCallbackService vendaCallbackService;
+    private final VendaCompensacaoCallbackService vendaCompensacaoCallbackService;
     private final VendaConfig vendaConfig;
     private final ConcurrentMap<String, Integer> ingressosPorCpf = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, IngressoReservadoEvent> reservasAceitas = new ConcurrentHashMap<>();
 
-    public VendaService(VendaCallbackService vendaCallbackService, VendaConfig vendaConfig) {
+    public VendaService(VendaCallbackService vendaCallbackService,
+            VendaCompensacaoCallbackService vendaCompensacaoCallbackService, VendaConfig vendaConfig) {
         this.vendaCallbackService = vendaCallbackService;
+        this.vendaCompensacaoCallbackService = vendaCompensacaoCallbackService;
         this.vendaConfig = vendaConfig;
     }
 
@@ -39,9 +45,29 @@ public class VendaService {
                 solicitacao.getEvento(),
                 solicitacao.getItens());
 
+        reservasAceitas.put(evento.getCompraId(), evento);
+
         vendaCallbackService.publicar(evento, evento.getEvento());
 
         return evento;
+    }
+
+    /**
+     * Reage a uma recusa de pagamento ja decidida em outro lugar (o
+     * GatewayDePagamentoService, ou um gateway real). Este metodo nao decide
+     * nada: so busca o que foi reservado e publica o fato da compensacao.
+     */
+    public IngressoReservaCompensadaEvent compensarPagamentoRecusado(String compraId, String motivo) {
+        var reserva = reservasAceitas.remove(compraId);
+        if (reserva == null) {
+            throw new CompraNaoEncontradaException(compraId);
+        }
+
+        var compensacao = IngressoReservaCompensadaEvent.novo(reserva, motivo);
+
+        vendaCompensacaoCallbackService.publicar(compensacao, reserva.getEvento());
+
+        return compensacao;
     }
 
     private Map<String, Integer> agruparPorSetor(Iterable<ItemDoIngressoVO> itens) {

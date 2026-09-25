@@ -34,6 +34,7 @@ Detalhes e critérios atendidos em
 Documentos:
 
 - [ADR-002 — domínio do projeto](docs/adr/ADR-002-dominio-do-projeto.md)
+- [ADR-003 — contrato, agregador e compensação](docs/adr/ADR-003-contrato-agregador-e-compensacao.md)
 - [ADR-005 — event sourcing no estoque](docs/adr/ADR-005-event-sourcing.md)
 - [Contrato do evento `IngressoReservadoEvent`](docs/contrato.md)
 - [Entrega da aula 03](docs/entregas/aula-03.md) — agregador por janela de tempo
@@ -68,6 +69,12 @@ Pré-requisitos: JDK 21, Docker. O Maven é resolvido pelo wrapper (`mvnw`/`mvnw
    ```powershell
    Invoke-RestMethod "http://localhost:8082/agregacao/reservas-por-setor?evento=show-demo"
    ```
+7. Simule a recusa do pagamento da compra que você acabou de reservar (devolve o
+   estoque via evento de compensação — `compra-0001` é o `compraId` do
+   `exemplo-reserva.json`):
+   ```powershell
+   curl -X POST http://localhost:8080/vendas/reservas/compra-0001/compensacoes
+   ```
 
 No arranque, o `servico-ingressos` abre os setores de `app.abertura` gravando um
 `SetorAbertoEvent` no log de cada stream — não há tabela de estoque semeada por
@@ -95,6 +102,6 @@ que olhar direto no banco está em
 ## Testes
 
 ```powershell
-cd servico-vendas;    ./mvnw.cmd test   # 5 testes
-cd servico-ingressos; ./mvnw.cmd test   # 24 testes
+cd servico-vendas;    ./mvnw.cmd test   # 13 testes
+cd servico-ingressos; ./mvnw.cmd test   # 26 testes
 ```

@@ -1,8 +1,10 @@
 app:
   topico: vendas.ingresso.reservado.v1
+  topico-compensacoes: vendas.ingresso.reserva-compensada.v1
   evento:
     origem: servico-vendas
     tipo: vendas.ingresso.reservado.v1
+    tipo-compensacoes: vendas.ingresso.reserva-compensada.v1
 
   # Regra de negocio do publisher. Numeros de exemplo: com limite 4, o
   # exemplo-reserva.json (3 ingressos) passa na primeira vez e e recusado

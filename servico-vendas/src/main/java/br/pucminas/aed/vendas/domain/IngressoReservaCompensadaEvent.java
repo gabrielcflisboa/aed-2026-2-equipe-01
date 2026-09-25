@@ -16,6 +16,7 @@ public final class IngressoReservaCompensadaEvent {
     private final String compraId;
     private final String evento;
     private final List<ItemDoIngressoVO> itens;
+    private final String motivo;
     private final Instant compensadoEm;
 
     @JsonCreator
@@ -24,17 +25,19 @@ public final class IngressoReservaCompensadaEvent {
             @JsonProperty("compraId") String compraId,
             @JsonProperty("evento") String evento,
             @JsonProperty("itens") List<ItemDoIngressoVO> itens,
+            @JsonProperty("motivo") String motivo,
             @JsonProperty("compensadoEm") Instant compensadoEm) {
         this.eventoId = Objects.requireNonNull(eventoId, "eventoId");
         this.compraId = Objects.requireNonNull(compraId, "compraId");
         this.evento = Objects.requireNonNull(evento, "evento");
         this.itens = List.copyOf(new ArrayList<>(Objects.requireNonNull(itens, "itens")));
+        this.motivo = Objects.requireNonNull(motivo, "motivo");
         this.compensadoEm = Objects.requireNonNull(compensadoEm, "compensadoEm");
     }
 
-    public static IngressoReservaCompensadaEvent novo(IngressoReservadoEvent reserva) {
+    public static IngressoReservaCompensadaEvent novo(IngressoReservadoEvent reserva, String motivo) {
         return new IngressoReservaCompensadaEvent(UUID.randomUUID().toString(), reserva.getCompraId(),
-                reserva.getEvento(), reserva.getItens(), Instant.now());
+                reserva.getEvento(), reserva.getItens(), motivo, Instant.now());
     }
 
     public String getEventoId() {
@@ -51,6 +54,10 @@ public final class IngressoReservaCompensadaEvent {
 
     public List<ItemDoIngressoVO> getItens() {
         return itens;
+    }
+
+    public String getMotivo() {
+        return motivo;
     }
 
     @JsonFormat(shape = JsonFormat.Shape.STRING)

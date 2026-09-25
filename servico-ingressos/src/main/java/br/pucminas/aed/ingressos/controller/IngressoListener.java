@@ -2,6 +2,7 @@ package br.pucminas.aed.ingressos.controller;
 
 import tools.jackson.databind.ObjectMapper;
 
+import br.pucminas.aed.ingressos.domain.IngressoReservaCompensadaEvent;
 import br.pucminas.aed.ingressos.domain.IngressoReservadoEvent;
 import br.pucminas.aed.ingressos.service.IngressoService;
 import org.slf4j.Logger;
@@ -35,5 +36,19 @@ public class IngressoListener {
         ack.acknowledge();
 
         logger.info("processado e confirmado: eventoId={}", evento.getEventoId());
+    }
+
+    @KafkaListener(topics = "${app.topico-compensacoes}", groupId = "${spring.kafka.consumer.group-id}")
+    public void receberCompensacao(String mensagem, Acknowledgment ack) {
+
+        var evento = objectMapper.readValue(mensagem, IngressoReservaCompensadaEvent.class);
+
+        logger.info("compensacao recebida: eventoId={} evento={}", evento.getEventoId(), evento.getEvento());
+
+        this.ingressoService.processarCompensacao(evento);
+
+        ack.acknowledge();
+
+        logger.info("compensacao processada e confirmada: eventoId={}", evento.getEventoId());
     }
 }

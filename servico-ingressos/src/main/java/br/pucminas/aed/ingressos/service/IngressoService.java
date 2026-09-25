@@ -5,6 +5,7 @@ import br.pucminas.aed.ingressos.domain.EstoqueDoSetor;
 import br.pucminas.aed.ingressos.domain.EstoqueEvent;
 import br.pucminas.aed.ingressos.domain.EventoDoEstoqueRepository;
 import br.pucminas.aed.ingressos.domain.IngressoDevolvidoEvent;
+import br.pucminas.aed.ingressos.domain.IngressoReservaCompensadaEvent;
 import br.pucminas.aed.ingressos.domain.IngressoReservadoEvent;
 import br.pucminas.aed.ingressos.domain.ItemDoIngressoVO;
 import br.pucminas.aed.ingressos.domain.ReservaRecusadaEvent;
@@ -40,6 +41,19 @@ public class IngressoService {
 
         for (ItemDoIngressoVO item : mensagem.getItens()) {
             retirar(mensagem, item);
+        }
+    }
+
+    @Transactional
+    public void processarCompensacao(IngressoReservaCompensadaEvent mensagem) {
+        if (!this.deduplicacaoRepository.registrar(mensagem.getEventoId())) {
+            logger.info("compensacao repetida ignorada: eventoId={}", mensagem.getEventoId());
+            return;
+        }
+
+        for (ItemDoIngressoVO item : mensagem.getItens()) {
+            compensar(mensagem.getEvento(), item.getSetor(), item.getQuantidade(),
+                    mensagem.getEventoId(), mensagem.getMotivo());
         }
     }
 
