@@ -14,10 +14,15 @@ Não redefina o domínio sem atualizar o ADR primeiro.
 
 - `servico-vendas` — publisher. Recebe a solicitação de compra via HTTP,
   valida limite por CPF e disponibilidade, publica `IngressoReservadoEvent`.
-  Não persiste nada.
+  Hospeda o gateway de pagamento simulado, que publica
+  `PagamentoRecusadoEvent`, e consome essa recusa para publicar
+  `IngressoLiberadoEvent`. Não persiste nada: reservas e cotas ficam em
+  memória. Tem DLQ própria para as recusas que não consegue tratar.
 - `servico-ingressos` — consumer idempotente. Mantém o estoque de ingressos
-  por setor, aplica o efeito da reserva e o caminho de compensação
-  (expiração/recusa), com H2 como banco de runtime.
+  por setor com event sourcing, aplica o efeito da reserva e devolve o que a
+  reserva retirou quando recebe a liberação, com H2 como banco de runtime.
+  Tem as DLQs de reservas e de liberações, o endpoint de reprocessamento
+  (`/reprocessamentos`) e a consulta do estoque (`/estoque/{evento}/{setor}`).
 
 Os dois são projetos Maven **independentes**: sem POM pai, sem módulo de
 contrato compartilhado. Cada lado declara a própria classe do evento.
@@ -58,6 +63,10 @@ checklist do enunciado, item 19 — `git log --reverse` é conferido).
 Pacote raiz: `br.pucminas.aed.vendas` e `br.pucminas.aed.ingressos` — sem
 underscore, sem repetir o prefixo "servico" dentro do nome do pacote.
 
+Desvio registrado da lista de sufixos: exceções usam o sufixo `Exception`,
+por convenção do Java (`CompraNaoEncontradaException`,
+`ReservaAindaNaoProcessadaException`). É o único sufixo fora da lista.
+
 ## O evento
 
 - Nome no particípio, descrevendo um fato ocorrido, nunca um comando
@@ -91,6 +100,26 @@ underscore, sem repetir o prefixo "servico" dentro do nome do pacote.
 - Teste automatizado que entregue o mesmo evento três vezes e verifique o
   efeito único.
 
+## O caminho de falha
+
+As decisões estão no [ADR-006](docs/adr/ADR-006-resiliencia.md).
+
+- Listener sem `try/catch`. A exceção precisa chegar ao tratador de erro do
+  `ResilienciaConfig`; um `catch` avança o offset e o evento some.
+- A lista de falhas permanentes mora no `ResilienciaConfig` de cada serviço.
+  O que não está nela é transitório: retenta até quatro vezes, com espera de
+  1, 2, 4 e 8 segundos, e depois vai para a DLQ.
+- Carga inválida vira falha permanente no construtor `@JsonCreator` do evento
+  consumido, com `Objects.requireNonNull` e validações de regra.
+- DLQ com o nome do tópico original acrescido de `.dlq`, declarada como
+  `NewTopic` pelo serviço que escreve nela.
+- Reprocessamento só por comando explícito, pelo `ce_id`, em
+  `POST /reprocessamentos`. Nunca um consumidor que republica a DLQ sozinho.
+- Todo consumidor de um tópico com DLQ é idempotente, porque reprocessar
+  entrega o evento de novo a todos os grupos do tópico.
+- Compensação é evento novo, no particípio, nunca `UPDATE` nem `DELETE` no log
+  do estoque.
+
 ## Estrutura de diretórios obrigatória
 
 ```
@@ -98,7 +127,14 @@ aed-2026-2-equipe-01/
 ├── README.md
 ├── docs/
 │   ├── adr/ADR-002-dominio-do-projeto.md
+│   ├── adr/ADR-003-contrato-agregador-e-compensacao.md
+│   ├── adr/ADR-005-event-sourcing.md
+│   ├── adr/ADR-006-resiliencia.md
+│   ├── adr/ADR-007-projecoes-e-replay.md
 │   ├── entregas/aula-02.md
+│   ├── arquitetura.md
+│   ├── contrato.md
+│   ├── apresentacao.pdf
 │   └── IA.md
 ├── servico-vendas/
 └── servico-ingressos/
@@ -121,4 +157,6 @@ adicionais fora deste layout sem justificar em ADR.
 - Os quatro cabeçalhos `ce_*` obrigatórios estão presentes.
 - `domain/` não importa `org.apache.kafka` nem `org.springframework` de infraestrutura.
 - `@Transactional` não aparece em `controller/`.
+- Nenhum `try/catch` em listener.
+- Consumidor novo nasce idempotente, e a falha permanente dele vai para a DLQ.
 - Nenhum dado pessoal real (CPF, e-mail, telefone) em código ou cargas de exemplo.
