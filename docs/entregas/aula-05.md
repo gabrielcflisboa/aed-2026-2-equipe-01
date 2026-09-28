@@ -8,7 +8,7 @@ event store, além de disponibilizar a **projeção de disponibilidade por setor
 - **Agregado, Projeção e ADRs.** `EstoqueDoSetor`, com um stream por `(evento, setor)`. A escolha do agregado, as
   alternativas descartadas e as consequências aceitas estão em [ADR-005](../adr/ADR-005-event-sourcing.md). As decisões
   sobre a visão de leitura, atraso tolerado e replay determinístico estão
-  em [ADR-006](../adr/ADR-006-projecoes-e-replay.md).
+em [ADR-007](../adr/ADR-007-projecoes-e-replay.md).
 - **Event store.** Tabela `evento_do_estoque`, append-only: o único comando de escrita em todo o código é um `INSERT`.
   Ordem global por `sequencia`, ordem por stream em `versao`, e `UNIQUE (stream_id, versao)` como detector de
   concorrência.
@@ -136,7 +136,7 @@ FROM projecao_checkpoint;
 **Decisão**
 
 * [ADR-005, event sourcing no estoque](../adr/ADR-005-event-sourcing.md)
-* [ADR-006, projeções e reconstrução de estado](../adr/ADR-006-projecoes-e-replay.md)
+* [ADR-007, projeções e reconstrução de estado](../adr/ADR-007-projecoes-e-replay.md)
 * [ADR-002, domínio do projeto](../adr/ADR-002-dominio-do-projeto.md)
 * [Contrato do evento de mensageria](../contrato.md)
 

@@ -1,6 +1,8 @@
-# ADR-006: projeções e reconstrução do estado de leitura da disponibilidade
+# ADR-007: projeções e reconstrução do estado de leitura da disponibilidade
 
 ## Status
+
+Renumerado de ADR-006 para ADR-007 em 25/09/2026, sem mudança de conteúdo, para liberar o número 006 ao ADR de resiliência. A versão entregue está na tag `entrega-aula-05`.
 
 Aceita · 2026-09-08 · Equipe 01
 
