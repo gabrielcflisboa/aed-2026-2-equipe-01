@@ -8,6 +8,8 @@ public interface AgregacaoRepository {
 
     boolean registrarEvento(UUID eventoId);
 
+    int esquecerEventosAntesDe(Instant limite);
+
     void somarNaJanela(String evento, String setor, Instant janelaInicio, int quantidade);
 
     List<AgregacaoDeSetorVO> listar(String evento);

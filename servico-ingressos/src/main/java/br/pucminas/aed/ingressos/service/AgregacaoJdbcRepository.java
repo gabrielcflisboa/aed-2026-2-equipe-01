@@ -35,6 +35,12 @@ public class AgregacaoJdbcRepository implements AgregacaoRepository {
     }
 
     @Override
+    public int esquecerEventosAntesDe(Instant limite) {
+        String sql = "DELETE FROM evento_agregado WHERE agregado_em < ?";
+        return this.clienteJdbc.update(sql, OffsetDateTime.ofInstant(limite, ZoneOffset.UTC));
+    }
+
+    @Override
     public void somarNaJanela(String evento, String setor, Instant janelaInicio, int quantidade) {
         String sql = "MERGE INTO agregacao_reserva_por_setor_janela "
                 + "(evento, setor, janela_inicio, total_ingressos, atualizado_em) "
