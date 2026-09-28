@@ -4,8 +4,7 @@ import br.pucminas.aed.ingressos.domain.DeduplicacaoRepository;
 import br.pucminas.aed.ingressos.domain.EstoqueDoSetor;
 import br.pucminas.aed.ingressos.domain.EstoqueEvent;
 import br.pucminas.aed.ingressos.domain.EventoDoEstoqueRepository;
-import br.pucminas.aed.ingressos.domain.IngressoDevolvidoEvent;
-import br.pucminas.aed.ingressos.domain.IngressoReservaCompensadaEvent;
+import br.pucminas.aed.ingressos.domain.IngressoLiberadoEvent;
 import br.pucminas.aed.ingressos.domain.IngressoReservadoEvent;
 import br.pucminas.aed.ingressos.domain.ItemDoIngressoVO;
 import br.pucminas.aed.ingressos.domain.ReservaRecusadaEvent;
@@ -16,7 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.UUID;
 
 @Service
 public class IngressoService {
@@ -45,28 +43,33 @@ public class IngressoService {
     }
 
     @Transactional
-    public void processarCompensacao(IngressoReservaCompensadaEvent mensagem) {
+    public void processarLiberacao(IngressoLiberadoEvent mensagem) {
         if (!this.deduplicacaoRepository.registrar(mensagem.getEventoId())) {
-            logger.info("compensacao repetida ignorada: eventoId={}", mensagem.getEventoId());
+            logger.info("liberacao repetida ignorada: eventoId={}", mensagem.getEventoId());
             return;
         }
 
-        for (ItemDoIngressoVO item : mensagem.getItens()) {
-            compensar(mensagem.getEvento(), item.getSetor(), item.getQuantidade(),
-                    mensagem.getEventoId(), mensagem.getMotivo());
+        var setores = mensagem.getItens().stream().map(ItemDoIngressoVO::getSetor).distinct().toList();
+        for (String setor : setores) {
+            liberar(mensagem.getEvento(), setor, mensagem.getReservaEventoId().toString(),
+                    mensagem.getEventoId().toString(), mensagem.getMotivo());
         }
     }
 
     @Transactional
-    public void compensar(String evento, String setor, int quantidade, UUID origemEventoId, String motivo) {
+    public void liberar(String evento, String setor, String reservaEventoId, String liberacaoEventoId,
+            String motivo) {
         StreamDoEstoqueVO stream = StreamDoEstoqueVO.de(evento, setor);
         EstoqueDoSetor estoque = carregar(stream);
 
-        IngressoDevolvidoEvent devolucao =
-                estoque.devolver(quantidade, origemEventoId.toString(), motivo);
-        this.eventoDoEstoqueRepository.anexar(stream, estoque.getVersao(), List.of(devolucao));
-
-        logger.info("devolvidos {} ingresso(s) em {}: {}", quantidade, stream, motivo);
+        estoque.liberar(reservaEventoId, liberacaoEventoId, motivo).ifPresentOrElse(
+                devolucao -> {
+                    this.eventoDoEstoqueRepository.anexar(stream, estoque.getVersao(), List.of(devolucao));
+                    logger.info("devolvidos {} ingresso(s) em {} da reserva {}",
+                            devolucao.getQuantidade(), stream, reservaEventoId);
+                },
+                () -> logger.info("nada a devolver em {} para a reserva {}: ja liberada ou recusada",
+                        stream, reservaEventoId));
     }
 
     private void retirar(IngressoReservadoEvent mensagem, ItemDoIngressoVO item) {
