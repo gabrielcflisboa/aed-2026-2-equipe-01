@@ -10,8 +10,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 
-import br.pucminas.aed.vendas.domain.IngressoReservaCompensadaEvent;
+import br.pucminas.aed.vendas.domain.IngressoLiberadoEvent;
 import br.pucminas.aed.vendas.domain.IngressoReservadoEvent;
+import br.pucminas.aed.vendas.domain.PagamentoRecusadoEvent;
 
 @Configuration
 @ConfigurationProperties(prefix = "app")
@@ -22,14 +23,20 @@ public class VendaConfig {
     private Map<String, Integer> setores = new LinkedHashMap<>();
 
     @Bean
-    public KafkaTemplate<String, IngressoReservadoEvent> kafkaTemplate(
+    public KafkaTemplate<String, IngressoReservadoEvent> clienteDoBrokerDeReservas(
             ProducerFactory<String, IngressoReservadoEvent> producerFactory) {
         return new KafkaTemplate<>(producerFactory);
     }
 
     @Bean
-    public KafkaTemplate<String, IngressoReservaCompensadaEvent> kafkaTemplateCompensacao(
-            ProducerFactory<String, IngressoReservaCompensadaEvent> producerFactory) {
+    public KafkaTemplate<String, IngressoLiberadoEvent> clienteDoBrokerDeLiberacoes(
+            ProducerFactory<String, IngressoLiberadoEvent> producerFactory) {
+        return new KafkaTemplate<>(producerFactory);
+    }
+
+    @Bean
+    public KafkaTemplate<String, PagamentoRecusadoEvent> clienteDoBrokerDePagamentos(
+            ProducerFactory<String, PagamentoRecusadoEvent> producerFactory) {
         return new KafkaTemplate<>(producerFactory);
     }
 

@@ -5,7 +5,7 @@ public class CompraNaoEncontradaException extends RuntimeException {
     private final String compraId;
 
     public CompraNaoEncontradaException(String compraId) {
-        super("compra nao encontrada ou ja compensada: %s".formatted(compraId));
+        super("compra desconhecida pelo servico-vendas: %s".formatted(compraId));
         this.compraId = compraId;
     }
 

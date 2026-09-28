@@ -1,10 +1,24 @@
 app:
   topico: vendas.ingresso.reservado.v1
-  topico-compensacoes: vendas.ingresso.reserva-compensada.v1
+  topico-liberacoes: vendas.ingresso.liberado.v1
+  topico-pagamentos-recusados: pagamentos.pagamento.recusado.v1
   evento:
     origem: servico-vendas
     tipo: vendas.ingresso.reservado.v1
-    tipo-compensacoes: vendas.ingresso.reserva-compensada.v1
+    tipo-liberacoes: vendas.ingresso.liberado.v1
+  gateway:
+    origem: gateway-de-pagamento-simulado
+    tipo-pagamentos-recusados: pagamentos.pagamento.recusado.v1
+
+  # Numeros justificados no ADR-006.
+  resiliencia:
+    retentativas: 4
+    espera-inicial-ms: 1000
+    multiplicador: 2.0
+    espera-maxima-ms: 8000
+    sufixo-dlq: .dlq
+    retencao-dlq-dias: 30
+    espera-da-confirmacao-ms: 10000
 
   # Regra de negocio do publisher. Numeros de exemplo: com limite 4, o
   # exemplo-reserva.json (3 ingressos) passa na primeira vez e e recusado
@@ -24,6 +38,12 @@ spring:
 
   kafka:
     bootstrap-servers: localhost:19092
+    consumer:
+      group-id: servico-vendas
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
@@ -31,6 +51,8 @@ spring:
         # o consumidor usa a classe dele proprio para desserializar; nao precisamos
         # anunciar o tipo Java nos cabecalhos
         spring.json.add.type.headers: false
+    listener:
+      ack-mode: manual_immediate
 
 logging:
   level:
