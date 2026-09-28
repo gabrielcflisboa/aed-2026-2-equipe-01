@@ -2,6 +2,8 @@ package br.pucminas.aed.vendas.service;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -9,10 +11,11 @@ import org.springframework.stereotype.Service;
 
 import br.pucminas.aed.vendas.VendaConfig;
 import br.pucminas.aed.vendas.domain.CompraNaoEncontradaException;
-import br.pucminas.aed.vendas.domain.IngressoReservaCompensadaEvent;
+import br.pucminas.aed.vendas.domain.IngressoLiberadoEvent;
 import br.pucminas.aed.vendas.domain.IngressoReservadoEvent;
 import br.pucminas.aed.vendas.domain.ItemDoIngressoVO;
 import br.pucminas.aed.vendas.domain.LimiteDeIngressosExcedidoException;
+import br.pucminas.aed.vendas.domain.PagamentoRecusadoEvent;
 import br.pucminas.aed.vendas.domain.SetorIndisponivelException;
 import br.pucminas.aed.vendas.domain.SolicitacaoDeReservaVO;
 
@@ -20,15 +23,16 @@ import br.pucminas.aed.vendas.domain.SolicitacaoDeReservaVO;
 public class VendaService {
 
     private final VendaCallbackService vendaCallbackService;
-    private final VendaCompensacaoCallbackService vendaCompensacaoCallbackService;
+    private final VendaLiberacaoCallbackService vendaLiberacaoCallbackService;
     private final VendaConfig vendaConfig;
     private final ConcurrentMap<String, Integer> ingressosPorCpf = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, IngressoReservadoEvent> reservasAceitas = new ConcurrentHashMap<>();
+    private final Set<String> comprasLiberadas = ConcurrentHashMap.newKeySet();
 
     public VendaService(VendaCallbackService vendaCallbackService,
-            VendaCompensacaoCallbackService vendaCompensacaoCallbackService, VendaConfig vendaConfig) {
+            VendaLiberacaoCallbackService vendaLiberacaoCallbackService, VendaConfig vendaConfig) {
         this.vendaCallbackService = vendaCallbackService;
-        this.vendaCompensacaoCallbackService = vendaCompensacaoCallbackService;
+        this.vendaLiberacaoCallbackService = vendaLiberacaoCallbackService;
         this.vendaConfig = vendaConfig;
     }
 
@@ -46,28 +50,36 @@ public class VendaService {
                 solicitacao.getItens());
 
         reservasAceitas.put(evento.getCompraId(), evento);
+        comprasLiberadas.remove(evento.getCompraId());
 
         vendaCallbackService.publicar(evento, evento.getEvento());
 
         return evento;
     }
 
-    /**
-     * Reage a uma recusa de pagamento ja decidida em outro lugar (o
-     * GatewayDePagamentoService, ou um gateway real). Este metodo nao decide
-     * nada: so busca o que foi reservado e publica o fato da compensacao.
-     */
-    public IngressoReservaCompensadaEvent compensarPagamentoRecusado(String compraId, String motivo) {
-        var reserva = reservasAceitas.remove(compraId);
+    public Optional<IngressoLiberadoEvent> liberarReserva(PagamentoRecusadoEvent recusa) {
+        var compraId = recusa.getCompraId();
+        if (comprasLiberadas.contains(compraId)) {
+            return Optional.empty();
+        }
+        var reserva = reservasAceitas.get(compraId);
         if (reserva == null) {
             throw new CompraNaoEncontradaException(compraId);
         }
 
-        var compensacao = IngressoReservaCompensadaEvent.novo(reserva, motivo);
+        var liberacao = IngressoLiberadoEvent.novo(reserva, recusa);
+        vendaLiberacaoCallbackService.publicar(liberacao, reserva.getEvento());
 
-        vendaCompensacaoCallbackService.publicar(compensacao, reserva.getEvento());
+        reservasAceitas.remove(compraId);
+        comprasLiberadas.add(compraId);
+        devolverCotaDoCpf(reserva);
+        return Optional.of(liberacao);
+    }
 
-        return compensacao;
+    private void devolverCotaDoCpf(IngressoReservadoEvent reserva) {
+        var total = reserva.getItens().stream().mapToInt(ItemDoIngressoVO::getQuantidade).sum();
+        ingressosPorCpf.computeIfPresent(VendaConfig.normalizarCpf(reserva.getCpfComprador()),
+                (cpf, jaReservados) -> Math.max(0, jaReservados - total));
     }
 
     private Map<String, Integer> agruparPorSetor(Iterable<ItemDoIngressoVO> itens) {
