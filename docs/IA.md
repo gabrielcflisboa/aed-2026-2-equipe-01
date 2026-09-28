@@ -306,3 +306,5 @@ Arquivos afetados: [`DisponibilidadeProjecaoService.java`](../servico-ingressos/
 - Formatação final do arquivo `ADR-006-projecoes-e-replay.md` seguindo rigorosamente a estrutura, tom técnico e padrões dos ADRs anteriores da equipe.
 
 ---
+
+## Projeto final
