@@ -2,7 +2,7 @@
 
 ## Aula 02
 
-### Pedro Assis CorrÃªa (256357) â€” tarefa 2: envelope CloudEvents e retorno do `send()`
+### Pedro Assis Corrêa (256357) — tarefa 2: envelope CloudEvents e retorno do `send()`
 
 Ferramenta: Claude (Claude Code).
 Arquivos afetados: [`VendaCallbackService.java`](../servico-vendas/src/main/java/br/pucminas/aed/vendas/service/VendaCallbackService.java),
@@ -11,88 +11,88 @@ Arquivos afetados: [`VendaCallbackService.java`](../servico-vendas/src/main/java
 
 ---
 
-#### InteraÃ§Ã£o 1 â€” como preencher `ce_time`
+#### Interação 1 — como preencher `ce_time`
 
-**Pedido:** como montar os cinco cabeÃ§alhos `ce_*` do CloudEvents 1.0 em modo binÃ¡rio no `ProducerRecord`.
+**Pedido:** como montar os cinco cabeçalhos `ce_*` do CloudEvents 1.0 em modo binário no `ProducerRecord`.
 
 **Sugerido:** montar os headers com `RecordHeader`/`headers().add(...)` em UTF-8, e preencher
-`ce_time` com `Instant.now()` no momento do envio â€” que Ã© a leitura literal de "timestamp ISO-8601".
+`ce_time` com `Instant.now()` no momento do envio — que é a leitura literal de "timestamp ISO-8601".
 
 **Aceito:** a montagem dos headers no `ProducerRecord`, com os valores em UTF-8.
 
-**RECUSADO:** `ce_time = Instant.now()`. A especificaÃ§Ã£o CloudEvents define `time` como o instante em
-que **a ocorrÃªncia aconteceu**, nÃ£o o instante do transporte. Como o produtor Kafka pode reenviar a
-mensagem internamente (`retries`), `now()` faria o cabeÃ§alho divergir do campo `reservadoEm` do corpo
-â€” duas verdades para o mesmo fato, e o consumidor nÃ£o teria como saber qual vale. Usamos
-`evento.getReservadoEm()`, que tambÃ©m torna o valor determinÃ­stico e testÃ¡vel.
+**RECUSADO:** `ce_time = Instant.now()`. A especificação CloudEvents define `time` como o instante em
+que **a ocorrência aconteceu**, não o instante do transporte. Como o produtor Kafka pode reenviar a
+mensagem internamente (`retries`), `now()` faria o cabeçalho divergir do campo `reservadoEm` do corpo
+— duas verdades para o mesmo fato, e o consumidor não teria como saber qual vale. Usamos
+`evento.getReservadoEm()`, que também torna o valor determinístico e testável.
 
-Efeito na saÃ­da real (consumida do tÃ³pico): `ce_time:2026-08-14T12:10:43.518380Z` e
-`"reservadoEm":"2026-08-14T12:10:43.518380Z"` â€” o mesmo instante nos dois lugares.
+Efeito na saída real (consumida do tópico): `ce_time:2026-08-14T12:10:43.518380Z` e
+`"reservadoEm":"2026-08-14T12:10:43.518380Z"` — o mesmo instante nos dois lugares.
 
 ---
 
-#### InteraÃ§Ã£o 2 â€” como saber se a publicaÃ§Ã£o deu certo
+#### Interação 2 — como saber se a publicação deu certo
 
-**Pedido:** como tratar o retorno de `kafkaTemplate.send(...)` para nÃ£o engolir falha de publicaÃ§Ã£o.
+**Pedido:** como tratar o retorno de `kafkaTemplate.send(...)` para não engolir falha de publicação.
 
-**Sugerido:** duas alternativas apareceram â€” chamar `.get()` no retorno para ler o `SendResult`
-de forma sÃ­ncrona, ou usar `ListenableFuture.addCallback(...)`.
+**Sugerido:** duas alternativas apareceram — chamar `.get()` no retorno para ler o `SendResult`
+de forma síncrona, ou usar `ListenableFuture.addCallback(...)`.
 
 **Aceito:** nenhuma das duas, na forma sugerida.
 
 **RECUSADO (1):** `.get()`/`.join()` no retorno. Bloquearia a thread do request HTTP esperando o
 broker confirmar, o que contradiz o `202 Accepted` da tarefa 3: o 202 existe justamente porque o
-efeito **ainda nÃ£o aconteceu** no instante da resposta. Sob indisponibilidade do broker, o request
-ficaria pendurado atÃ© o `delivery.timeout.ms`.
+efeito **ainda não aconteceu** no instante da resposta. Sob indisponibilidade do broker, o request
+ficaria pendurado até o `delivery.timeout.ms`.
 
-**RECUSADO (2):** `ListenableFuture.addCallback(...)`. API removida no Spring Kafka 3+ â€” o projeto
-estÃ¡ no Spring Boot 4.1, onde `send()` devolve `CompletableFuture`. SugestÃ£o baseada em material
-desatualizado; nÃ£o compilaria.
+**RECUSADO (2):** `ListenableFuture.addCallback(...)`. API removida no Spring Kafka 3+ — o projeto
+está no Spring Boot 4.1, onde `send()` devolve `CompletableFuture`. Sugestão baseada em material
+desatualizado; não compilaria.
 
-**Adotado:** `whenComplete((resultado, falha) -> ...)`, assÃ­ncrono. Falha vira `log.error`, sucesso
-loga partiÃ§Ã£o e offset. A falha Ã© registrada e **nÃ£o** propagada: quem chamou jÃ¡ respondeu 202, e
-exceÃ§Ã£o lanÃ§ada dentro de callback assÃ­ncrona nÃ£o chegaria ao cliente HTTP de qualquer forma.
+**Adotado:** `whenComplete((resultado, falha) -> ...)`, assíncrono. Falha vira `log.error`, sucesso
+loga partição e offset. A falha é registrada e **não** propagada: quem chamou já respondeu 202, e
+exceção lançada dentro de callback assíncrona não chegaria ao cliente HTTP de qualquer forma.
 
 ---
 
 ## Aula 03
 
-### Gabriel Campos Ferreira Lisboa (255696) â€” agregador por janela de tempo
+### Gabriel Campos Ferreira Lisboa (255696) — agregador por janela de tempo
 
 Ferramenta: GitHub Copilot.
 Arquivos afetados: `AgregadorDeReservasListener.java`,
 `AgregacaoDeReservasService.java`, `AgregacaoJdbcRepository.java`,
-`IngressoReservadoEvent.java` (adiÃ§Ã£o de `reservadoEm`), `schema.sql`,
+`IngressoReservadoEvent.java` (adição de `reservadoEm`), `schema.sql`,
 `AgregacaoDeReservasServiceTest.java`.
 
-**Pedido:** implementar um segundo consumidor, com `group.id` prÃ³prio, que
+**Pedido:** implementar um segundo consumidor, com `group.id` próprio, que
 agregasse o fluxo de reservas por janela de tempo, respondendo a uma
-pergunta de negÃ³cio.
+pergunta de negócio.
 
 **Sugerido:** usar processing time (`Instant.now()` no momento em que o
 listener recebe a mensagem) para calcular a janela, por ser mais simples de
-implementar e nÃ£o depender de nenhum campo do payload.
+implementar e não depender de nenhum campo do payload.
 
-**RECUSADO:** processing time para esta pergunta. A pergunta agregada Ã©
-"quantos ingressos foram reservados por setor/evento" â€” um fato do domÃ­nio,
-nÃ£o da infraestrutura de consumo. Com processing time, reprocessar o tÃ³pico
-do inÃ­cio (por exemplo depois de corrigir um bug no agregador) mudaria o
-resultado, jÃ¡ que cada mensagem cairia em uma janela diferente dependendo de
-quando fosse lida. Isso tornaria a agregaÃ§Ã£o nÃ£o confiÃ¡vel como fonte de
-relatÃ³rio.
+**RECUSADO:** processing time para esta pergunta. A pergunta agregada é
+"quantos ingressos foram reservados por setor/evento" — um fato do domínio,
+não da infraestrutura de consumo. Com processing time, reprocessar o tópico
+do início (por exemplo depois de corrigir um bug no agregador) mudaria o
+resultado, já que cada mensagem cairia em uma janela diferente dependendo de
+quando fosse lida. Isso tornaria a agregação não confiável como fonte de
+relatório.
 
-**Adotado:** event time, lendo `reservadoEm` do prÃ³prio payload (campo que jÃ¡
-existe no evento do publisher, mas que o consumidor original â€” por ser
-tolerante e minimalista â€” nÃ£o declarava). O consumidor da aula 02 continua
-ignorando esse e outros campos que nÃ£o usa; sÃ³ o novo evento consumido pelo
+**Adotado:** event time, lendo `reservadoEm` do próprio payload (campo que já
+existe no evento do publisher, mas que o consumidor original — por ser
+tolerante e minimalista — não declarava). O consumidor da aula 02 continua
+ignorando esse e outros campos que não usa; só o novo evento consumido pelo
 agregador passou a declarar `reservadoEm`. Isso torna o resultado da
-agregaÃ§Ã£o determinÃ­stico sob reprocessamento, o que o teste
+agregação determinístico sob reprocessamento, o que o teste
 `AgregacaoDeReservasServiceTest` confirma diretamente ao gravar eventos fora
 de ordem de chegada e verificar que cada um cai na janela correta.
 
 ---
 
-### Amir Gabriel Dantas Santos Andrade (1666035) â€” compensaÃ§Ã£o por pagamento recusado
+### Amir Gabriel Dantas Santos Andrade (1666035) — compensação por pagamento recusado
 
 Ferramenta: Claude (Claude Code).
 Arquivos afetados: [`GatewayDePagamentoService.java`](../servico-vendas/src/main/java/br/pucminas/aed/vendas/service/GatewayDePagamentoService.java),
@@ -106,179 +106,179 @@ Arquivos afetados: [`GatewayDePagamentoService.java`](../servico-vendas/src/main
 
 ---
 
-#### InteraÃ§Ã£o 1 â€” como publicar o evento de compensaÃ§Ã£o
+#### Interação 1 — como publicar o evento de compensação
 
-**Pedido:** ligar o `IngressoReservaCompensadaEvent` ao Kafka, jÃ¡ que o `KafkaTemplate` existente era
+**Pedido:** ligar o `IngressoReservaCompensadaEvent` ao Kafka, já que o `KafkaTemplate` existente era
 `KafkaTemplate<String, IngressoReservadoEvent>`.
 
-**Sugerido:** generalizar para um Ãºnico `KafkaTemplate<String, Object>`, com tÃ³pico, `ce_type`, id e
-instante virando parÃ¢metros do `publicar(...)`, porque o Kafka sÃ³ transporta bytes e a tipagem existe
+**Sugerido:** generalizar para um único `KafkaTemplate<String, Object>`, com tópico, `ce_type`, id e
+instante virando parâmetros do `publicar(...)`, porque o Kafka só transporta bytes e a tipagem existe
 apenas no compilador Java.
 
-**Aceito:** a explicaÃ§Ã£o de que a tipagem nÃ£o existe no Kafka, sÃ³ no lado do `servico-vendas`, e portanto
-nÃ£o centraliza nada nem Ã© risco entre serviÃ§os.
+**Aceito:** a explicação de que a tipagem não existe no Kafka, só no lado do `servico-vendas`, e portanto
+não centraliza nada nem é risco entre serviços.
 
-**RECUSADO:** o `KafkaTemplate<String, Object>` genÃ©rico. A equipe preferiu o padrÃ£o que o projeto jÃ¡ usa
-(um template tipado por evento): dÃ¡ seguranÃ§a em tempo de compilaÃ§Ã£o, sabemos exatamente qual evento cada
-serviÃ§o de publicaÃ§Ã£o envia, e nÃ£o dÃ¡ para publicar o evento errado no tÃ³pico errado.
+**RECUSADO:** o `KafkaTemplate<String, Object>` genérico. A equipe preferiu o padrão que o projeto já usa
+(um template tipado por evento): dá segurança em tempo de compilação, sabemos exatamente qual evento cada
+serviço de publicação envia, e não dá para publicar o evento errado no tópico errado.
 
-**Adotado:** segundo bean `kafkaTemplateCompensacao` no `VendaConfig` e classe irmÃ£
-`VendaCompensacaoCallbackService`. O `VendaCallbackService` e o teste dele nÃ£o foram alterados.
+**Adotado:** segundo bean `kafkaTemplateCompensacao` no `VendaConfig` e classe irmã
+`VendaCompensacaoCallbackService`. O `VendaCallbackService` e o teste dele não foram alterados.
 
 ---
 
-#### InteraÃ§Ã£o 2 â€” quem decide a recusa do pagamento
+#### Interação 2 — quem decide a recusa do pagamento
 
-**Pedido:** simular o pagamento recusado que dispara a compensaÃ§Ã£o.
+**Pedido:** simular o pagamento recusado que dispara a compensação.
 
 **Sugerido:** endpoint `POST /vendas/reservas/{compraId}/compensacoes` chamando direto
-`VendaService.compensarPagamentoRecusado(compraId)`, que jÃ¡ assumia que a recusa aconteceu.
+`VendaService.compensarPagamentoRecusado(compraId)`, que já assumia que a recusa aconteceu.
 
-**RECUSADO:** deixar a decisÃ£o de recusar dentro do `VendaService`. Um gateway de pagamento Ã© um sistema
-externo; a lÃ³gica dele nÃ£o pode morar na regra de negÃ³cio do `servico-vendas`, que deve apenas reagir a uma
+**RECUSADO:** deixar a decisão de recusar dentro do `VendaService`. Um gateway de pagamento é um sistema
+externo; a lógica dele não pode morar na regra de negócio do `servico-vendas`, que deve apenas reagir a uma
 recusa ocorrida em outro lugar.
 
 **Adotado:** `GatewayDePagamentoService` simula o gateway e devolve o motivo; o controller liga as duas
-peÃ§as. O campo `motivo` passou a viajar no evento atÃ© o `IngressoDevolvidoEvent`, em vez de um texto fixo
-no consumidor. O `reservasAceitas` (mapa em memÃ³ria) Ã© a simplificaÃ§Ã£o da simulaÃ§Ã£o: num cenÃ¡rio real seria
-uma tabela de compras do prÃ³prio `servico-vendas`.
+peças. O campo `motivo` passou a viajar no evento até o `IngressoDevolvidoEvent`, em vez de um texto fixo
+no consumidor. O `reservasAceitas` (mapa em memória) é a simplificação da simulação: num cenário real seria
+uma tabela de compras do próprio `servico-vendas`.
 
 ---
 
-#### InteraÃ§Ã£o 3 â€” identidade do evento de compensaÃ§Ã£o e idempotÃªncia
+#### Interação 3 — identidade do evento de compensação e idempotência
 
-**Pedido:** consumir a compensaÃ§Ã£o no `servico-ingressos` devolvendo o estoque.
+**Pedido:** consumir a compensação no `servico-ingressos` devolvendo o estoque.
 
-**Sugerido:** ao ler o cÃ³digo, a IA apontou dois problemas: o `contrato.md` mandava reusar o `eventoId` da
-reserva original no evento de compensaÃ§Ã£o, e o `IngressoService.compensar(...)` nÃ£o registrava deduplicaÃ§Ã£o
+**Sugerido:** ao ler o código, a IA apontou dois problemas: o `contrato.md` mandava reusar o `eventoId` da
+reserva original no evento de compensação, e o `IngressoService.compensar(...)` não registrava deduplicação
 (registrar por item quebraria a partir do segundo item da mesma mensagem).
 
 **RECUSADO:** reaproveitar o `eventoId` da reserva. A tabela `evento_processado` usa `eventoId` como chave e
-Ã© compartilhada; a compensaÃ§Ã£o seria descartada como "jÃ¡ processada" e a devoluÃ§Ã£o sumiria sem erro.
+é compartilhada; a compensação seria descartada como "já processada" e a devolução sumiria sem erro.
 
-**Adotado:** `eventoId` novo por compensaÃ§Ã£o, com o `contrato.md` corrigido (seÃ§Ãµes 9 a 12 e 14, incluindo
-`compraId`, `evento`, `motivo` e `compensadoEm`). O `processarCompensacao(...)` registra a deduplicaÃ§Ã£o uma
-vez por mensagem e reaproveita o `compensar(...)` por item. O teste entrega a mesma compensaÃ§Ã£o 3 vezes e
-confere um Ãºnico `IngressoDevolvido`. Verificado ponta a ponta com Kafka real: reserva, recusa, e o estoque
+**Adotado:** `eventoId` novo por compensação, com o `contrato.md` corrigido (seções 9 a 12 e 14, incluindo
+`compraId`, `evento`, `motivo` e `compensadoEm`). O `processarCompensacao(...)` registra a deduplicação uma
+vez por mensagem e reaproveita o `compensar(...)` por item. O teste entrega a mesma compensação 3 vezes e
+confere um único `IngressoDevolvido`. Verificado ponta a ponta com Kafka real: reserva, recusa, e o estoque
 voltou a 100.
 
 ---
 
 ## Aula 05
 
-### Pedro Assis CorrÃªa (256357): event sourcing do estoque
+### Pedro Assis Corrêa (256357): event sourcing do estoque
 
 Ferramenta: Claude (Claude Code).
 Arquivos afetados: todo o `servico-ingressos`, com agregado, event store e
 testes; [`ADR-005`](adr/ADR-005-event-sourcing.md);
-[`aula-05.md`](entregas/aula-05.md); e correÃ§Ãµes de bloqueadores em
+[`aula-05.md`](entregas/aula-05.md); e correções de bloqueadores em
 [`VendaService.java`](../servico-vendas/src/main/java/br/pucminas/aed/vendas/service/VendaService.java)
 e [`VendaConfig.java`](../servico-vendas/src/main/java/br/pucminas/aed/vendas/VendaConfig.java).
 
 ---
 
-#### InteraÃ§Ã£o 1: qual Ã© o agregado
+#### Interação 1: qual é o agregado
 
-**Pedido:** qual entidade do domÃ­nio de venda de ingressos deveria virar o
+**Pedido:** qual entidade do domínio de venda de ingressos deveria virar o
 agregado com event sourcing, dado o ADR-002.
 
-**Sugerido:** trÃªs candidatos, com o trade-off de cada um. `EstoqueDoSetor` com
+**Sugerido:** três candidatos, com o trade-off de cada um. `EstoqueDoSetor` com
 stream por `(evento, setor)`; `Reserva`, um stream por compra; e o evento de
-entretenimento inteiro como um Ãºnico stream.
+entretenimento inteiro como um único stream.
 
 **Aceito:** `EstoqueDoSetor`, stream `(evento, setor)`. O argumento que decidiu
-foi o da fronteira de consistÃªncia. A Ãºnica invariante do domÃ­nio, nÃ£o vender
+foi o da fronteira de consistência. A única invariante do domínio, não vender
 mais do que a capacidade, se resolve inteiramente dentro de um setor de um
-evento, e Ã© ali que dois compradores disputam o mesmo assento, que Ã© a razÃ£o pela
-qual o ADR-002 escolheu este domÃ­nio.
+evento, e é ali que dois compradores disputam o mesmo assento, que é a razão pela
+qual o ADR-002 escolheu este domínio.
 
-**RECUSADO (1):** `Reserva` como agregado do estoque. Uma reserva isolada nÃ£o
+**RECUSADO (1):** `Reserva` como agregado do estoque. Uma reserva isolada não
 sabe se cabe. A checagem de capacidade voltaria a depender de uma leitura
-externa, quase certamente de uma projeÃ§Ã£o, que Ã© o que a aula alerta contra. Ela
-provavelmente volta na Saga, para o ciclo de vida do pagamento, mas nÃ£o como dona
+externa, quase certamente de uma projeção, que é o que a aula alerta contra. Ela
+provavelmente volta na Saga, para o ciclo de vida do pagamento, mas não como dona
 do estoque.
 
-**RECUSADO (2):** o evento inteiro como um stream sÃ³. Toda venda do show
-competiria pela mesma versÃ£o. GanharÃ­amos uma invariante que o domÃ­nio nÃ£o pede,
-a capacidade total do evento, ao custo de serializar vendas que nÃ£o disputam nada
+**RECUSADO (2):** o evento inteiro como um stream só. Toda venda do show
+competiria pela mesma versão. Ganharíamos uma invariante que o domínio não pede,
+a capacidade total do evento, ao custo de serializar vendas que não disputam nada
 entre si.
 
 ---
 
-#### InteraÃ§Ã£o 2: como o estoque inicial entra no sistema
+#### Interação 2: como o estoque inicial entra no sistema
 
-**Pedido:** como popular a capacidade dos setores, jÃ¡ que a tabela
+**Pedido:** como popular a capacidade dos setores, já que a tabela
 `estoque_setor` da aula 02 nunca era semeada.
 
-**Sugerido:** um `data.sql` com `INSERT INTO` para cada setor, que Ã© a resposta
-correta para uma tabela mutÃ¡vel e foi inclusive a correÃ§Ã£o apontada na revisÃ£o da
+**Sugerido:** um `data.sql` com `INSERT INTO` para cada setor, que é a resposta
+correta para uma tabela mutável e foi inclusive a correção apontada na revisão da
 aula 02.
 
 **RECUSADO.** Com event sourcing essa resposta se inverte. Capacidade inserida
-direto na tabela Ã© estado que o log nÃ£o conhece: o agregado se reconstrÃ³i sÃ³ a
-partir dos eventos do stream, entÃ£o nasceria com capacidade zero e recusaria toda
-reserva. O `data.sql` ficaria lÃ¡, correto e ignorado.
+direto na tabela é estado que o log não conhece: o agregado se reconstrói só a
+partir dos eventos do stream, então nasceria com capacidade zero e recusaria toda
+reserva. O `data.sql` ficaria lá, correto e ignorado.
 
 **Adotado:** a abertura do setor virou o primeiro fato do stream
 (`SetorAbertoEvent`), gravado pelo `AberturaDeSetoresService` no arranque, uma vez
-por stream. A capacidade passa a sobreviver a qualquer replay porque ela *Ã©*
+por stream. A capacidade passa a sobreviver a qualquer replay porque ela *é*
 parte do log.
 
 ---
 
-#### InteraÃ§Ã£o 3: de onde a decisÃ£o lÃª o estoque
+#### Interação 3: de onde a decisão lê o estoque
 
-**Pedido:** o `IngressoService` relÃª o stream inteiro a cada mensagem para saber
+**Pedido:** o `IngressoService` relê o stream inteiro a cada mensagem para saber
 quanto resta. Dava para manter uma tabela `disponibilidade_por_setor` com o saldo
-jÃ¡ calculado e ler uma linha sÃ³?
+já calculado e ler uma linha só?
 
-**Sugerido:** sim, uma projeÃ§Ã£o derivada do log, com a coluna `disponivel` jÃ¡
-pronta. A decisÃ£o viraria uma consulta de uma linha em vez de um replay.
+**Sugerido:** sim, uma projeção derivada do log, com a coluna `disponivel` já
+pronta. A decisão viraria uma consulta de uma linha em vez de um replay.
 
-**RECUSADO.** Ã‰ a armadilha exata que o enunciado descreve. No momento em que a
-decisÃ£o de aceitar ou recusar depende de uma tabela derivada, essa tabela vira
-fonte da verdade sem ninguÃ©m ter decidido isso, e o atraso da atualizaÃ§Ã£o, que
+**RECUSADO.** É a armadilha exata que o enunciado descreve. No momento em que a
+decisão de aceitar ou recusar depende de uma tabela derivada, essa tabela vira
+fonte da verdade sem ninguém ter decidido isso, e o atraso da atualização, que
 seria um inconveniente visual, passa a vender o mesmo assento duas vezes. Quem
-decide Ã© o agregado, reconstruÃ­do do stream.
+decide é o agregado, reconstruído do stream.
 
-A recusa tambÃ©m define o lugar da primeira projeÃ§Ã£o quando ela entrar: tela, e
-nada alÃ©m disso. Por isso esta entrega para no event store, e a folha de entrega
-registra a Ãºnica leitura que existe hoje, com defasagem zero.
+A recusa também define o lugar da primeira projeção quando ela entrar: tela, e
+nada além disso. Por isso esta entrega para no event store, e a folha de entrega
+registra a única leitura que existe hoje, com defasagem zero.
 
 ---
 
-#### InteraÃ§Ã£o 4: compensaÃ§Ã£o apagando o passado
+#### Interação 4: compensação apagando o passado
 
 **Pedido:** como devolver ingressos ao estoque quando a reserva expira ou o
-pagamento Ã© recusado.
+pagamento é recusado.
 
-**Sugerido, entre outras opÃ§Ãµes:** remover do log o `IngressoRetiradoEvent`
-correspondente, jÃ¡ que o efeito precisa ser desfeito.
+**Sugerido, entre outras opções:** remover do log o `IngressoRetiradoEvent`
+correspondente, já que o efeito precisa ser desfeito.
 
-**RECUSADO.** Log append-only nÃ£o tem `DELETE`. Apagar o fato faria a reserva
-desaparecer da histÃ³ria, e depois do replay ninguÃ©m saberia que ela existiu, que
-Ã© justamente a auditoria que o ADR-002 listou como algo que vale reprocessar.
+**RECUSADO.** Log append-only não tem `DELETE`. Apagar o fato faria a reserva
+desaparecer da história, e depois do replay ninguém saberia que ela existiu, que
+é justamente a auditoria que o ADR-002 listou como algo que vale reprocessar.
 
 **Adotado:** `IngressoDevolvidoEvent` como fato novo, que anula o *efeito* do
-anterior sem apagÃ¡-lo. Os dois continuam no log depois de qualquer reconstruÃ§Ã£o.
-O `EventoDoEstoqueRepository` foi escrito sem nenhum mÃ©todo de atualizar ou
-remover, para que a regra nÃ£o dependa de disciplina de quem escreve o cÃ³digo.
+anterior sem apagá-lo. Os dois continuam no log depois de qualquer reconstrução.
+O `EventoDoEstoqueRepository` foi escrito sem nenhum método de atualizar ou
+remover, para que a regra não dependa de disciplina de quem escreve o código.
 
 ---
 
-#### InteraÃ§Ã£o 5: a sugestÃ£o que o teste derrubou
+#### Interação 5: a sugestão que o teste derrubou
 
-Registro pelo valor de mÃ©todo. Foi aceita, entrou no cÃ³digo e sÃ³ caiu quando a
-suÃ­te rodou.
+Registro pelo valor de método. Foi aceita, entrou no código e só caiu quando a
+suíte rodou.
 
 **`abertura: {}`** no `application.yml` de teste, para dizer "mapa vazio". O
-binder do Spring lÃª isso como a *string* `"{}"` e falha com
-`ConverterNotFoundException`. A correÃ§Ã£o foi omitir a chave, porque o campo jÃ¡
+binder do Spring lê isso como a *string* `"{}"` e falha com
+`ConverterNotFoundException`. A correção foi omitir a chave, porque o campo já
 nasce como `LinkedHashMap` vazio.
 
 ---
 
-### Amir Gabriel Dantas Santos Andrade: implementaÃ§Ã£o das projeÃ§Ãµes, suite de testes e ADR-006
+### Amir Gabriel Dantas Santos Andrade: implementação das projeções, suite de testes e ADR-006
 
 Ferramenta: Gemini.
 Arquivos afetados: [`DisponibilidadeProjecaoService.java`](../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/DisponibilidadeProjecaoService.java),
@@ -288,22 +288,22 @@ Arquivos afetados: [`DisponibilidadeProjecaoService.java`](../servico-ingressos/
 
 ---
 
-#### InteraÃ§Ã£o 6 â€” auxÃ­lio com sintaxe Java, navegaÃ§Ã£o no IntelliJ, revisÃ£o da projeÃ§Ã£o e ADR-006
+#### Interação 6 — auxílio com sintaxe Java, navegação no IntelliJ, revisão da projeção e ADR-006
 
-**Pedido:** OrientaÃ§Ã£o para superar dificuldades de adaptaÃ§Ã£o ao ecossistema Java (sintaxe do Spring/Stream API) e Ã  navegaÃ§Ã£o no IntelliJ IDEA; revisÃ£o da lÃ³gica de projeÃ§Ã£o/replay implementada; criaÃ§Ã£o da suÃ­te de testes de integraÃ§Ã£o; e formataÃ§Ã£o da ADR-006 no padrÃ£o da equipe.
+**Pedido:** Orientação para superar dificuldades de adaptação ao ecossistema Java (sintaxe do Spring/Stream API) e à navegação no IntelliJ IDEA; revisão da lógica de projeção/replay implementada; criação da suíte de testes de integração; e formatação da ADR-006 no padrão da equipe.
 
 **Sugerido pela IA:**
-1. Apresentar explicaÃ§Ãµes detalhadas passo a passo do cÃ³digo Java, alÃ©m de atalhos e fluxos do IntelliJ para execuÃ§Ã£o de testes unitÃ¡rios e depuraÃ§Ã£o.
-2. SugestÃ£o de criar novos arquivos e testes sem reaproveitar a estrutura existente no projeto.
+1. Apresentar explicações detalhadas passo a passo do código Java, além de atalhos e fluxos do IntelliJ para execução de testes unitários e depuração.
+2. Sugestão de criar novos arquivos e testes sem reaproveitar a estrutura existente no projeto.
 
 **RECUSADO:**
-- A criaÃ§Ã£o de arquivos fora do padrÃ£o e testes desvinculados do contexto original foram recusadas para nÃ£o quebrar as regras de pacotes estabelecidas no `AGENTS.md`.
+- A criação de arquivos fora do padrão e testes desvinculados do contexto original foram recusadas para não quebrar as regras de pacotes estabelecidas no `AGENTS.md`.
 
 **Adotado:**
-- UtilizaÃ§Ã£o da IA para traduzir o funcionamento do cÃ³digo Java do Spring/JDBC e guiar a execuÃ§Ã£o dos testes pelo IntelliJ.
-- RefatoraÃ§Ã£o e revisÃ£o da lÃ³gica da classe `ReconstrucaoService` para garantir que o replay zerasse a tabela e o checkpoint de forma atÃ´mica e determinÃ­stica.
-- CriaÃ§Ã£o do teste de integraÃ§Ã£o `ReconstrucaoDeProjecaoTest.java`, garantindo que o reprocessamento do log reconstrÃ³i o estado exato da projeÃ§Ã£o, corrige ediÃ§Ãµes indevidas no banco e consome novos fatos agendados.
-- FormataÃ§Ã£o final do arquivo `ADR-006-projecoes-e-replay.md` seguindo rigorosamente a estrutura, tom tÃ©cnico e padrÃµes dos ADRs anteriores da equipe.
+- Utilização da IA para traduzir o funcionamento do código Java do Spring/JDBC e guiar a execução dos testes pelo IntelliJ.
+- Refatoração e revisão da lógica da classe `ReconstrucaoService` para garantir que o replay zerasse a tabela e o checkpoint de forma atômica e determinística.
+- Criação do teste de integração `ReconstrucaoDeProjecaoTest.java`, garantindo que o reprocessamento do log reconstrói o estado exato da projeção, corrige edições indevidas no banco e consome novos fatos agendados.
+- Formatação final do arquivo `ADR-006-projecoes-e-replay.md` seguindo rigorosamente a estrutura, tom técnico e padrões dos ADRs anteriores da equipe.
 
 ---
 
