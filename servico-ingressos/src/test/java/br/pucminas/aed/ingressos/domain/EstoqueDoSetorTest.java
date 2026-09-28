@@ -32,7 +32,7 @@ class EstoqueDoSetorTest {
                 new SetorAbertoEvent(10),
                 new IngressoRetiradoEvent(3, "msg-1"),
                 new IngressoRetiradoEvent(2, "msg-2"),
-                new IngressoDevolvidoEvent(1, "msg-1", "pagamento recusado")));
+                new IngressoDevolvidoEvent(1, "msg-1", null, "pagamento recusado")));
 
         assertThat(estoque.getCapacidade()).isEqualTo(10);
         assertThat(estoque.getRetirados()).isEqualTo(4);
@@ -60,36 +60,110 @@ class EstoqueDoSetorTest {
     void setorFechadoRecusa() {
         var estoque = EstoqueDoSetor.reconstruir(PISTA, List.of());
 
-        assertThat(estoque.retirar(1, "msg-1")).isInstanceOf(ReservaRecusadaEvent.class);
+        assertThat(estoque.retirar(1, "msg-1"))
+                .isInstanceOf(ReservaRecusadaEvent.class);
     }
 
     @Test
     @DisplayName("pedido que cabe vira IngressoRetirado")
     void pedidoQueCabeEAceito() {
-        var estoque = EstoqueDoSetor.reconstruir(PISTA, log(new SetorAbertoEvent(4)));
+        var estoque = EstoqueDoSetor.reconstruir(
+                PISTA,
+                log(new SetorAbertoEvent(4)));
 
         var fato = estoque.retirar(4, "msg-1");
 
         assertThat(fato).isInstanceOf(IngressoRetiradoEvent.class);
-        assertThat(((IngressoRetiradoEvent) fato).getQuantidade()).isEqualTo(4);
+        assertThat(((IngressoRetiradoEvent) fato).getQuantidade())
+                .isEqualTo(4);
     }
 
     @Test
-    @DisplayName("a compensacao nao devolve mais do que saiu")
-    void compensacaoNaoInventaIngresso() {
+    @DisplayName("liberar devolve o que a reserva retirou, somando itens do mesmo setor")
+    void liberarDevolveOQueAReservaRetirou() {
         var estoque = EstoqueDoSetor.reconstruir(PISTA, log(
                 new SetorAbertoEvent(10),
-                new IngressoRetiradoEvent(2, "msg-1")));
+                new IngressoRetiradoEvent(2, "r1"),
+                new IngressoRetiradoEvent(1, "r1"),
+                new IngressoRetiradoEvent(4, "r2")));
 
-        assertThatThrownBy(() -> estoque.devolver(3, "msg-1", "reserva expirada"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("so 2 foram retirados");
+        var devolucao = estoque.liberar(
+                "r1",
+                "l1",
+                "pagamento recusado");
+
+        assertThat(devolucao).contains(
+                new IngressoDevolvidoEvent(
+                        3,
+                        "l1",
+                        "r1",
+                        "pagamento recusado"));
+    }
+
+    @Test
+    @DisplayName("reserva recusada ou ja liberada nao devolve nada")
+    void reservaRecusadaOuJaLiberadaNaoDevolve() {
+        var estoque = EstoqueDoSetor.reconstruir(PISTA, log(
+                new SetorAbertoEvent(10),
+                new IngressoRetiradoEvent(2, "r1"),
+                new ReservaRecusadaEvent(20, 8, "r2"),
+                new IngressoDevolvidoEvent(
+                        2,
+                        "l1",
+                        "r1",
+                        "pagamento recusado")));
+
+        assertThat(estoque.liberar(
+                "r1",
+                "l2",
+                "pagamento recusado"))
+                .isEmpty();
+
+        assertThat(estoque.liberar(
+                "r2",
+                "l3",
+                "pagamento recusado"))
+                .isEmpty();
+
+        assertThat(estoque.getDisponivel()).isEqualTo(10);
+    }
+
+    @Test
+    @DisplayName("liberacao de reserva que o log nao conhece lanca ReservaAindaNaoProcessadaException")
+    void reservaDesconhecidaLanca() {
+        var estoque = EstoqueDoSetor.reconstruir(
+                PISTA,
+                log(new SetorAbertoEvent(10)));
+
+        assertThatThrownBy(() ->
+                estoque.liberar(
+                        "r9",
+                        "l9",
+                        "pagamento recusado"))
+                .isInstanceOf(ReservaAindaNaoProcessadaException.class);
+    }
+
+    @Test
+    @DisplayName("devolucao antiga, sem reservaEventoId, continua valendo no replay")
+    void devolucaoAntigaContinuaValendo() {
+        var estoque = EstoqueDoSetor.reconstruir(PISTA, log(
+                new SetorAbertoEvent(10),
+                new IngressoRetiradoEvent(2, "r1"),
+                new IngressoDevolvidoEvent(
+                        2,
+                        "c1",
+                        null,
+                        "pagamento recusado")));
+
+        assertThat(estoque.getDisponivel()).isEqualTo(10);
     }
 
     @Test
     @DisplayName("a decisao nao altera o agregado: quem muda o estado e o log")
     void decidirNaoMutaOAgregado() {
-        var estoque = EstoqueDoSetor.reconstruir(PISTA, log(new SetorAbertoEvent(10)));
+        var estoque = EstoqueDoSetor.reconstruir(
+                PISTA,
+                log(new SetorAbertoEvent(10)));
 
         estoque.retirar(3, "msg-1");
         estoque.retirar(3, "msg-2");
@@ -101,9 +175,16 @@ class EstoqueDoSetorTest {
 
     private static List<EventoGravadoVO> log(EstoqueEvent... eventos) {
         var gravados = new ArrayList<EventoGravadoVO>();
+
         for (var i = 0; i < eventos.length; i++) {
-            gravados.add(new EventoGravadoVO(i + 1L, PISTA, i + 1L, eventos[i], Instant.EPOCH));
+            gravados.add(new EventoGravadoVO(
+                    i + 1L,
+                    PISTA,
+                    i + 1L,
+                    eventos[i],
+                    Instant.EPOCH));
         }
+
         return gravados;
     }
 }

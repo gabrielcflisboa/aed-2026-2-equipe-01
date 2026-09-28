@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import br.pucminas.aed.ingressos.domain.EstoqueDoSetor;
 import br.pucminas.aed.ingressos.domain.EventoDoEstoqueRepository;
 import br.pucminas.aed.ingressos.domain.IngressoDevolvidoEvent;
-import br.pucminas.aed.ingressos.domain.IngressoReservaCompensadaEvent;
+import br.pucminas.aed.ingressos.domain.IngressoLiberadoEvent;
 import br.pucminas.aed.ingressos.domain.IngressoReservadoEvent;
 import br.pucminas.aed.ingressos.domain.IngressoRetiradoEvent;
 import br.pucminas.aed.ingressos.domain.ItemDoIngressoVO;
@@ -67,41 +67,71 @@ class IngressoServiceIdempotenciaTest {
         ingressoService.processarReserva(reserva(UUID.randomUUID(), "CAMAROTE", 3));
 
         var stream = StreamDoEstoqueVO.de(EVENTO, "CAMAROTE");
-        var estoque = EstoqueDoSetor.reconstruir(stream, eventoDoEstoqueRepository.lerStream(stream));
+        var estoque = EstoqueDoSetor.reconstruir(
+                stream,
+                eventoDoEstoqueRepository.lerStream(stream));
 
         assertThat(estoque.getVersao()).isEqualTo(3);
         assertThat(estoque.getDisponivel()).isEqualTo(5);
     }
 
     @Test
-    @DisplayName("mesma compensacao entregue 3x: um unico IngressoDevolvido no log e uma unica devolucao")
-    void mesmaCompensacaoTresVezesEfeitoUnico() {
+    @DisplayName("mesma liberacao entregue 3x: um unico IngressoDevolvido, com o que a reserva retirou")
+    void mesmaLiberacaoTresVezesEfeitoUnico() {
         aberturaDeSetoresService.abrir(EVENTO, "PISTA", 10);
-        ingressoService.processarReserva(reserva(UUID.randomUUID(), "PISTA", 5));
 
-        var compensacao = compensacao(UUID.randomUUID(), "PISTA", 3);
-        ingressoService.processarCompensacao(compensacao);
-        ingressoService.processarCompensacao(compensacao);
-        ingressoService.processarCompensacao(compensacao);
+        var reservaId = UUID.randomUUID();
+        ingressoService.processarReserva(reserva(reservaId, "PISTA", 5));
+
+        var liberacao = liberacao(
+                UUID.randomUUID(),
+                reservaId,
+                "PISTA",
+                5);
+
+        ingressoService.processarLiberacao(liberacao);
+        ingressoService.processarLiberacao(liberacao);
+        ingressoService.processarLiberacao(liberacao);
 
         var stream = StreamDoEstoqueVO.de(EVENTO, "PISTA");
         var log = eventoDoEstoqueRepository.lerStream(stream);
 
         assertThat(log).extracting(g -> g.getEvento().tipo())
-                .containsExactly(SetorAbertoEvent.TIPO, IngressoRetiradoEvent.TIPO, IngressoDevolvidoEvent.TIPO);
+                .containsExactly(
+                        SetorAbertoEvent.TIPO,
+                        IngressoRetiradoEvent.TIPO,
+                        IngressoDevolvidoEvent.TIPO);
 
         var estoque = EstoqueDoSetor.reconstruir(stream, log);
-        assertThat(estoque.getRetirados()).isEqualTo(2);
-        assertThat(estoque.getDisponivel()).isEqualTo(8);
+        assertThat(estoque.getRetirados()).isZero();
+        assertThat(estoque.getDisponivel()).isEqualTo(10);
     }
 
-    private static IngressoReservadoEvent reserva(UUID eventoId, String setor, int quantidade) {
-        return new IngressoReservadoEvent(eventoId, EVENTO,
-                List.of(new ItemDoIngressoVO(setor, quantidade)), Instant.now());
+    private static IngressoReservadoEvent reserva(
+            UUID eventoId,
+            String setor,
+            int quantidade) {
+
+        return new IngressoReservadoEvent(
+                eventoId,
+                EVENTO,
+                List.of(new ItemDoIngressoVO(setor, quantidade)),
+                Instant.now());
     }
 
-    private static IngressoReservaCompensadaEvent compensacao(UUID eventoId, String setor, int quantidade) {
-        return new IngressoReservaCompensadaEvent(eventoId, EVENTO,
-                List.of(new ItemDoIngressoVO(setor, quantidade)), "pagamento recusado", Instant.now());
+    private static IngressoLiberadoEvent liberacao(
+            UUID eventoId,
+            UUID reservaEventoId,
+            String setor,
+            int quantidade) {
+
+        return new IngressoLiberadoEvent(
+                eventoId,
+                reservaEventoId,
+                "compra-teste",
+                EVENTO,
+                List.of(new ItemDoIngressoVO(setor, quantidade)),
+                "pagamento recusado",
+                Instant.now());
     }
 }
