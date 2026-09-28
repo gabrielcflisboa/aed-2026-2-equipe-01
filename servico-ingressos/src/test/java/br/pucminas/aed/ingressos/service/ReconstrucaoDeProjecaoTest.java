@@ -45,11 +45,26 @@ class ReconstrucaoDeProjecaoTest {
         aberturaDeSetoresService.abrir(EVENTO, "PISTA", 10);
         aberturaDeSetoresService.abrir(EVENTO, "CAMAROTE", 4);
 
-        var primeiraCompra = UUID.randomUUID();
-        ingressoService.processarReserva(reserva(primeiraCompra, "PISTA", 3));
-        ingressoService.processarReserva(reserva(UUID.randomUUID(), "CAMAROTE", 4));
-        ingressoService.processarReserva(reserva(UUID.randomUUID(), "CAMAROTE", 1));
-        ingressoService.compensar(EVENTO, "PISTA", 1, primeiraCompra, "pagamento recusado");
+        var reservaDeUm = UUID.randomUUID();
+
+        ingressoService.processarReserva(
+                reserva(UUID.randomUUID(), "PISTA", 2));
+
+        ingressoService.processarReserva(
+                reserva(reservaDeUm, "PISTA", 1));
+
+        ingressoService.processarReserva(
+                reserva(UUID.randomUUID(), "CAMAROTE", 4));
+
+        ingressoService.processarReserva(
+                reserva(UUID.randomUUID(), "CAMAROTE", 1));
+
+        ingressoService.liberar(
+                EVENTO,
+                "PISTA",
+                reservaDeUm.toString(),
+                UUID.randomUUID().toString(),
+                "pagamento recusado");
 
         reconstrucaoService.avancar();
     }
@@ -103,6 +118,7 @@ class ReconstrucaoDeProjecaoTest {
         clienteJdbc.update(
                 "UPDATE disponibilidade_por_setor SET disponivel = 999 WHERE evento = ? AND setor = 'PISTA'",
                 EVENTO);
+
         assertThat(disponibilidade()).isNotEqualTo(correto);
 
         reconstrucaoService.reconstruir();
@@ -127,7 +143,9 @@ class ReconstrucaoDeProjecaoTest {
     @DisplayName("processar um novo evento apos o avanco faz o proximo ciclo agendado atualizar a projecao")
     void novoEventoEProcessadoNoProximoCicloDoAgendador() {
         // Valida estado inicial do setor VIP (ainda não criado)
-        assertThat(clienteJdbc.queryForList("SELECT * FROM disponibilidade_por_setor WHERE evento = ? AND setor = 'VIP'", EVENTO))
+        assertThat(clienteJdbc.queryForList(
+                "SELECT * FROM disponibilidade_por_setor WHERE evento = ? AND setor = 'VIP'",
+                EVENTO))
                 .isEmpty();
 
         // 1. Gera um fato novo no log de eventos
@@ -151,11 +169,19 @@ class ReconstrucaoDeProjecaoTest {
     private Map<String, Object> linhaDoSetor(String setor) {
         return clienteJdbc.queryForMap(
                 "SELECT * FROM disponibilidade_por_setor WHERE evento = ? AND setor = ?",
-                EVENTO, setor);
+                EVENTO,
+                setor);
     }
 
-    private static IngressoReservadoEvent reserva(UUID eventoId, String setor, int quantidade) {
-        return new IngressoReservadoEvent(eventoId, EVENTO,
-                List.of(new ItemDoIngressoVO(setor, quantidade)), Instant.now());
+    private static IngressoReservadoEvent reserva(
+            UUID eventoId,
+            String setor,
+            int quantidade) {
+
+        return new IngressoReservadoEvent(
+                eventoId,
+                EVENTO,
+                List.of(new ItemDoIngressoVO(setor, quantidade)),
+                Instant.now());
     }
 }

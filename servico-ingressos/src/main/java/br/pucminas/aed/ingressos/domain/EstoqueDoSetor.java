@@ -1,13 +1,21 @@
 package br.pucminas.aed.ingressos.domain;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 
 public final class EstoqueDoSetor {
 
     public static final long VERSAO_DE_STREAM_VAZIO = 0L;
 
     private final StreamDoEstoqueVO stream;
+    private final Map<String, Integer> retiradosPorReserva = new HashMap<>();
+    private final Set<String> reservasRecusadas = new HashSet<>();
+    private final Set<String> reservasLiberadas = new HashSet<>();
 
     private long versao = VERSAO_DE_STREAM_VAZIO;
     private boolean aberto;
@@ -33,9 +41,20 @@ public final class EstoqueDoSetor {
                 this.aberto = true;
                 this.capacidade = aberto.getCapacidade();
             }
-            case IngressoRetiradoEvent retirado -> this.retirados += retirado.getQuantidade();
-            case IngressoDevolvidoEvent devolvido -> this.retirados -= devolvido.getQuantidade();
-            case ReservaRecusadaEvent recusada -> this.recusas++;
+            case IngressoRetiradoEvent retirado -> {
+                this.retirados += retirado.getQuantidade();
+                this.retiradosPorReserva.merge(retirado.getOrigemEventoId(), retirado.getQuantidade(), Integer::sum);
+            }
+            case IngressoDevolvidoEvent devolvido -> {
+                this.retirados -= devolvido.getQuantidade();
+                if (devolvido.getReservaEventoId() != null) {
+                    this.reservasLiberadas.add(devolvido.getReservaEventoId());
+                }
+            }
+            case ReservaRecusadaEvent recusada -> {
+                this.recusas++;
+                this.reservasRecusadas.add(recusada.getOrigemEventoId());
+            }
         }
         this.versao = versaoDoEvento;
     }
@@ -48,14 +67,18 @@ public final class EstoqueDoSetor {
         return new IngressoRetiradoEvent(quantidade, origemEventoId);
     }
 
-    public IngressoDevolvidoEvent devolver(int quantidade, String origemEventoId, String motivo) {
-        exigirQuantidadePositiva(quantidade);
-        if (quantidade > retirados) {
-            throw new IllegalStateException(
-                    "devolucao de %d ingressos em %s, mas so %d foram retirados"
-                            .formatted(quantidade, stream.id(), retirados));
+    public Optional<IngressoDevolvidoEvent> liberar(String reservaEventoId, String liberacaoEventoId, String motivo) {
+        if (reservasLiberadas.contains(reservaEventoId)) {
+            return Optional.empty();
         }
-        return new IngressoDevolvidoEvent(quantidade, origemEventoId, motivo);
+        var retiradosPelaReserva = retiradosPorReserva.get(reservaEventoId);
+        if (retiradosPelaReserva != null) {
+            return Optional.of(new IngressoDevolvidoEvent(retiradosPelaReserva, liberacaoEventoId, reservaEventoId, motivo));
+        }
+        if (reservasRecusadas.contains(reservaEventoId)) {
+            return Optional.empty();
+        }
+        throw new ReservaAindaNaoProcessadaException(stream.id(), reservaEventoId);
     }
 
     private static void exigirQuantidadePositiva(int quantidade) {
