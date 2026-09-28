@@ -2,13 +2,16 @@ package br.pucminas.aed.ingressos.service;
 
 import br.pucminas.aed.ingressos.domain.AgregacaoDeSetorVO;
 import br.pucminas.aed.ingressos.domain.AgregacaoRepository;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.UUID;
 
 @Repository
 public class AgregacaoJdbcRepository implements AgregacaoRepository {
@@ -17,6 +20,18 @@ public class AgregacaoJdbcRepository implements AgregacaoRepository {
 
     public AgregacaoJdbcRepository(JdbcTemplate clienteJdbc) {
         this.clienteJdbc = clienteJdbc;
+    }
+
+    @Override
+    public boolean registrarEvento(UUID eventoId) {
+        String sql = "INSERT INTO evento_agregado (evento_id, agregado_em) VALUES (?, ?)";
+        try {
+            this.clienteJdbc.update(sql, eventoId.toString(),
+                    OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC));
+            return true;
+        } catch (DuplicateKeyException jaEstava) {
+            return false;
+        }
     }
 
     @Override

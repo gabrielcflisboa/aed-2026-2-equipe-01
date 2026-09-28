@@ -1,6 +1,7 @@
 package br.pucminas.aed.ingressos;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Instant;
 import java.util.List;
@@ -70,9 +71,10 @@ class AgregacaoDeReservasServiceTest {
         assertEquals(2, totalDaJanela(janelas, "2026-01-01T12:05:00Z"));
     }
 
-    // Pergunta 4 da aula-03.md: reprocessar o fluxo do comeco, com a tabela de agregacao
-    // zerada, produz os mesmos totais. Aqui o segundo processamento ainda chega em ordem
-    // diferente da primeira, porque a janela depende so de reservadoEm e nao da chegada.
+    // Pergunta 4 da aula-03.md: reprocessar o fluxo do comeco, com o estado do agregador
+    // zerado (a agregacao e a memoria de entrega em evento_agregado), produz os mesmos totais.
+    // Aqui o segundo processamento ainda chega em ordem diferente da primeira, porque a janela
+    // depende so de reservadoEm e nao da chegada.
     @Test
     void reprocessarDoComecoComATabelaZeradaDaOsMesmosTotais() {
         var evento = "show-agregacao-4";
@@ -86,6 +88,8 @@ class AgregacaoDeReservasServiceTest {
         var primeiraLeitura = fotografia(evento);
 
         clienteJdbc.update("DELETE FROM agregacao_reserva_por_setor_janela WHERE evento = ?", evento);
+        reservas.forEach(reserva -> clienteJdbc.update(
+                "DELETE FROM evento_agregado WHERE evento_id = ?", reserva.getEventoId().toString()));
         assertEquals(0, agregacaoDeReservasService.listar(evento).size());
 
         reservas.reversed().forEach(agregacaoDeReservasService::agregar);
@@ -93,6 +97,30 @@ class AgregacaoDeReservasServiceTest {
 
         assertEquals(3, primeiraLeitura.size());
         assertEquals(primeiraLeitura, segundaLeitura);
+    }
+
+    @Test
+    void mesmaReservaEntregueTresVezesSomaUmaVez() {
+        var evento = "show-agregacao-5";
+        var reserva = reserva(evento, "PISTA", 2, "2026-01-01T14:00:10Z");
+
+        agregacaoDeReservasService.agregar(reserva);
+        agregacaoDeReservasService.agregar(reserva);
+        agregacaoDeReservasService.agregar(reserva);
+
+        var janelas = agregacaoDeReservasService.listar(evento);
+
+        assertEquals(1, janelas.size());
+        assertEquals(2, janelas.get(0).getTotalIngressos());
+    }
+
+    @Test
+    void reservaSemReservadoEmNaoTemJanelaEFalhaDeFormaPermanente() {
+        var reserva = new IngressoReservadoEvent(
+                UUID.randomUUID(), "show-agregacao-6", List.of(new ItemDoIngressoVO("PISTA", 1)), null);
+
+        assertThrows(IllegalArgumentException.class, () -> agregacaoDeReservasService.agregar(reserva));
+        assertEquals(0, agregacaoDeReservasService.listar("show-agregacao-6").size());
     }
 
     // Uma linha por (setor, janela, total), ordenada, para comparar sem depender da ordem

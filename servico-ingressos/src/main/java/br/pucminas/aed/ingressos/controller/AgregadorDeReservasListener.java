@@ -1,5 +1,7 @@
 package br.pucminas.aed.ingressos.controller;
 
+import java.nio.charset.StandardCharsets;
+
 import tools.jackson.databind.ObjectMapper;
 
 import br.pucminas.aed.ingressos.domain.IngressoReservadoEvent;
@@ -31,7 +33,12 @@ public class AgregadorDeReservasListener {
 
         ack.acknowledge();
 
-        logger.info("agregacao atualizada: eventoId={} evento={} particao={} offset={}",
-                evento.getEventoId(), evento.getEvento(), registro.partition(), registro.offset());
+        logger.info("agregacao atualizada: ce_id={} evento={} particao={} offset={}",
+                ceId(registro), evento.getEvento(), registro.partition(), registro.offset());
+    }
+
+    private static String ceId(ConsumerRecord<?, ?> registro) {
+        var cabecalho = registro.headers().lastHeader("ce_id");
+        return cabecalho == null ? null : new String(cabecalho.value(), StandardCharsets.UTF_8);
     }
 }

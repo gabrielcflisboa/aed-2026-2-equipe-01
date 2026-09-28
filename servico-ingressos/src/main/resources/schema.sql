@@ -45,3 +45,9 @@ CREATE TABLE IF NOT EXISTS agregacao_reserva_por_setor_janela (
     atualizado_em TIMESTAMP WITH TIME ZONE NOT NULL,
     PRIMARY KEY (evento, setor, janela_inicio)
 );
+
+-- Memoria de entrega do agregador, separada da do estoque porque o grupo e outro.
+CREATE TABLE IF NOT EXISTS evento_agregado (
+    evento_id   VARCHAR(36) PRIMARY KEY,
+    agregado_em TIMESTAMP WITH TIME ZONE NOT NULL
+);
