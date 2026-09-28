@@ -284,7 +284,7 @@ Ferramenta: Gemini.
 Arquivos afetados: [`DisponibilidadeProjecaoService.java`](../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/DisponibilidadeProjecaoService.java),
 [`ReconstrucaoService.java`](../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/ReconstrucaoService.java),
 [`ReconstrucaoDeProjecaoTest.java`](../servico-ingressos/src/test/java/br/pucminas/aed/ingressos/service/ReconstrucaoDeProjecaoTest.java),
-[`ADR-006`](adr/ADR-006-projecoes-e-replay.md) e [`aula-05.md`](entregas/aula-05.md).
+[`ADR-007`](adr/ADR-007-projecoes-e-replay.md) e [`aula-05.md`](entregas/aula-05.md).
 
 ---
 

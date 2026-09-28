@@ -9,7 +9,7 @@ prometeu um caminho de compensação e algo que valesse reprocessar. Este ADR re
 decisões da etapa 2 (aula 03) e da atualização feita depois na mesma branch, que fechou o
 caminho de compensação. Foi escrito depois do código, e as decisões abaixo foram tomadas
 durante a implementação; o [ADR-005](ADR-005-event-sourcing.md) e o
-[ADR-006](ADR-006-projecoes-e-replay.md) são posteriores e já as pressupõem.
+[ADR-007](ADR-007-projecoes-e-replay.md) são posteriores e já as pressupõem.
 
 ## Contexto
 
@@ -132,7 +132,7 @@ registrar o `eventoId` como o consumidor idempotente já faz.
 
 **O agregador mede reservas, não saldo.** Uma compensação não subtrai da agregação: ela responde
 "quantos ingressos foram reservados", não "quantos continuam reservados". O saldo real é do
-event store e da projeção `disponibilidade_por_setor` (ADR-005 e ADR-006).
+event store e da projeção `disponibilidade_por_setor` (ADR-005 e ADR-007).
 
 **O `reservasAceitas` é volátil.** Some se o `servico-vendas` reiniciar, e uma compensação
 depois do reinício vira 404. Num sistema real seria uma tabela de compras do próprio
