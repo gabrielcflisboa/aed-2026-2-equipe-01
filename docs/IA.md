@@ -309,58 +309,42 @@ Arquivos afetados: [`DisponibilidadeProjecaoService.java`](../servico-ingressos/
 
 ## Projeto final
 
-### Maria LuÃ­sa Lacerda (257115): Saga do pagamento recusado
+### Maria Luísa Lacerda (257115): Saga do pagamento recusado
 
 Ferramenta: ChatGPT.
 
-Arquivos afetados: [`IngressoLiberadoEvent.java`](../servico-vendas/src/main/java/br/pucminas/aed/vendas/domain/IngressoLiberadoEvent.java),
-[`PagamentoRecusadoEvent.java`](../servico-vendas/src/main/java/br/pucminas/aed/vendas/domain/PagamentoRecusadoEvent.java),
-[`VendaService.java`](../servico-vendas/src/main/java/br/pucminas/aed/vendas/service/VendaService.java),
-[`PagamentoListener.java`](../servico-vendas/src/main/java/br/pucminas/aed/vendas/controller/PagamentoListener.java),
-[`EstoqueDoSetor.java`](../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/domain/EstoqueDoSetor.java),
-[`IngressoService.java`](../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/IngressoService.java),
-[`IngressoServiceIdempotenciaTest.java`](../servico-ingressos/src/test/java/br/pucminas/aed/ingressos/service/IngressoServiceIdempotenciaTest.java),
-[`ReconstrucaoDeProjecaoTest.java`](../servico-ingressos/src/test/java/br/pucminas/aed/ingressos/service/ReconstrucaoDeProjecaoTest.java),
-[`contrato.md`](contrato.md),
-[`arquitetura.md`](arquitetura.md) e
-[`ADR-006`](adr/ADR-006-resiliencia.md).
+Arquivos afetados: [`IngressoLiberadoEvent.java`](../servico-vendas/src/main/java/br/pucminas/aed/vendas/domain/IngressoLiberadoEvent.java), [`EstoqueDoSetor.java`](../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/domain/EstoqueDoSetor.java), [`contrato.md`](contrato.md), [`arquitetura.md`](arquitetura.md) e [`ADR-006-resiliencia.md`](adr/ADR-006-resiliencia.md).
 
----
+#### Interação 1: modelagem da Saga do pagamento recusado
 
-#### InteraÃ§Ã£o 1: modelagem da Saga do pagamento recusado
+**Pedido:** substituir o fluxo antigo de compensação direta por uma Saga coreografada para representar a recusa do pagamento e a posterior liberação da reserva.
 
-**Pedido:** substituir o fluxo antigo de compensaÃ§Ã£o direta por uma Saga coreografada para representar a recusa do pagamento e a posterior liberaÃ§Ã£o da reserva.
+**Sugerido:** separar os fatos em `PagamentoRecusadoEvent` e `IngressoLiberadoEvent`. O gateway de pagamento simulado publica a recusa; o `servico-vendas` consome esse fato, localiza a reserva correspondente e publica a liberação; o `servico-ingressos` consome a liberação e devolve o estoque.
 
-**Sugerido:** separar os fatos em `PagamentoRecusadoEvent` e `IngressoLiberadoEvent`. O gateway de pagamento simulado publica a recusa; o `servico-vendas` consome esse fato, localiza a reserva correspondente e publica a liberaÃ§Ã£o; o `servico-ingressos` consome a liberaÃ§Ã£o e devolve o estoque.
+**Aceito:** o fluxo antigo baseado em `IngressoReservaCompensadaEvent` foi substituído pela sequência `PagamentoRecusadoEvent` → `IngressoLiberadoEvent`. O evento de liberação mantém `reservaEventoId` para identificar a reserva desfeita e `pagamentoEventoId` para correlacionar a liberação com a recusa que a originou.
 
-**Aceito:** o fluxo antigo baseado em `IngressoReservaCompensadaEvent` foi substituÃ­do pela sequÃªncia `PagamentoRecusadoEvent` â†’ `IngressoLiberadoEvent`. O evento de liberaÃ§Ã£o mantÃ©m `reservaEventoId` para identificar a reserva desfeita e `pagamentoEventoId` para correlacionar a liberaÃ§Ã£o com a recusa que a originou.
+#### Interação 2: devolver somente o que a reserva retirou
 
----
+**Pedido:** definir como o `servico-ingressos` deveria processar uma liberação sem confiar na quantidade recebida no comando de liberação e sem devolver ingressos que a reserva não chegou a retirar.
 
-#### InteraÃ§Ã£o 2: devolver somente o que a reserva retirou
+**Sugerido:** reconstruir `EstoqueDoSetor` a partir do stream e manter a relação entre `reservaEventoId` e a quantidade efetivamente retirada. A liberação consulta esse histórico e gera `IngressoDevolvidoEvent` somente com a quantidade que aquela reserva realmente retirou.
 
-**Pedido:** definir como o `servico-ingressos` deveria processar uma liberaÃ§Ã£o sem confiar na quantidade recebida no comando de liberaÃ§Ã£o e sem devolver ingressos que a reserva nÃ£o chegou a retirar.
+**Recusado:** usar a quantidade informada pelo evento de liberação como valor a ser devolvido ao estoque. Essa abordagem permitiria devolver ingressos que a reserva não chegou a retirar, repetindo o problema existente no mecanismo anterior de compensação. A quantidade devolvida deve ser determinada pelo histórico do agregado, relacionando `reservaEventoId` à retirada efetivamente registrada para aquela reserva.
 
-**Sugerido:** reconstruir `EstoqueDoSetor` a partir do stream e manter a relaÃ§Ã£o entre `reservaEventoId` e a quantidade efetivamente retirada. A liberaÃ§Ã£o consulta esse histÃ³rico e gera `IngressoDevolvidoEvent` somente com a quantidade que aquela reserva realmente retirou.
+**Aceito:** `EstoqueDoSetor` passou a reconstruir as retiradas por reserva e a liberação usa o histórico como fonte da verdade. Uma reserva recusada ou já liberada não produz nova devolução. Quando a liberação chega antes da reserva correspondente, é lançada `ReservaAindaNaoProcessadaException`, permitindo tratar o caso como falha transitória.
 
-**Aceito:** `EstoqueDoSetor` passou a reconstruir as retiradas por reserva e a liberaÃ§Ã£o usa o histÃ³rico como fonte da verdade. Uma reserva recusada ou jÃ¡ liberada nÃ£o produz nova devoluÃ§Ã£o. Quando a liberaÃ§Ã£o chega antes da reserva correspondente, Ã© lanÃ§ada `ReservaAindaNaoProcessadaException`, permitindo tratar o caso como falha transitÃ³ria.
+#### Interação 3: idempotência e reconstrução do estoque
 
----
+**Pedido:** adaptar os testes existentes ao novo fluxo de liberação e verificar que entregas repetidas não devolvem ingressos mais de uma vez.
 
-#### InteraÃ§Ã£o 3: idempotÃªncia e reconstruÃ§Ã£o do estoque
+**Sugerido:** testar a mesma liberação entregue três vezes, duas liberações diferentes para a mesma reserva, liberação de reserva recusada, liberação antes da reserva e reconstrução da projeção após uma retirada seguida de devolução.
 
-**Pedido:** adaptar os testes existentes ao novo fluxo de liberaÃ§Ã£o e verificar que entregas repetidas nÃ£o devolvem ingressos mais de uma vez.
+**Aceito:** os testes passaram a verificar a idempotência tanto pelo `eventoId` processado quanto pela reserva que está sendo desfeita. O cenário de reconstrução foi ajustado para preservar o resultado esperado da PISTA depois de reservar e liberar ingressos. Os testes do `servico-vendas` passaram com 19 testes executados, sem falhas ou erros, e os testes de liberação do `servico-ingressos` também passaram nos cenários implementados.
 
-**Sugerido:** testar a mesma liberaÃ§Ã£o entregue trÃªs vezes, duas liberaÃ§Ãµes diferentes para a mesma reserva, liberaÃ§Ã£o de reserva recusada, liberaÃ§Ã£o antes da reserva e reconstruÃ§Ã£o da projeÃ§Ã£o apÃ³s uma retirada seguida de devoluÃ§Ã£o.
+#### Interação 4: contrato e documentação da nova Saga
 
-**Aceito:** os testes passaram a verificar a idempotÃªncia tanto pelo `eventoId` processado quanto pela reserva que estÃ¡ sendo desfeita. O cenÃ¡rio de reconstruÃ§Ã£o foi ajustado para preservar o resultado esperado da PISTA depois de reservar e liberar ingressos. Os testes do `servico-vendas` passaram com 19 testes executados, sem falhas ou erros, e os testes de liberaÃ§Ã£o do `servico-ingressos` tambÃ©m passaram nos cenÃ¡rios implementados.
+**Pedido:** atualizar a documentação para refletir a substituição do mecanismo antigo de compensação pela Saga do pagamento recusado.
 
----
+**Sugerido:** reescrever as seções do contrato referentes à compensação como contrato de `IngressoLiberadoEvent`, documentar `PagamentoRecusadoEvent`, registrar as correlações `eventoId`, `reservaEventoId` e `pagamentoEventoId` e atualizar o desenho arquitetural com os três tópicos da Saga.
 
-#### InteraÃ§Ã£o 4: contrato e documentaÃ§Ã£o da nova Saga
-
-**Pedido:** atualizar a documentaÃ§Ã£o sem manter o contrato antigo de compensaÃ§Ã£o e garantir que os documentos refletissem os eventos realmente implementados.
-
-**Sugerido:** reescrever as seÃ§Ãµes do contrato referentes Ã  compensaÃ§Ã£o como contrato de `IngressoLiberadoEvent`, documentar `PagamentoRecusadoEvent`, registrar as correlaÃ§Ãµes `eventoId`, `reservaEventoId` e `pagamentoEventoId` e atualizar o desenho arquitetural com os trÃªs tÃ³picos da Saga.
-
-**Aceito:** `docs/contrato.md` passou a documentar `vendas.ingresso.liberado.v1` e `pagamentos.pagamento.recusado.v1`; `docs/arquitetura.md` passou a apresentar o domÃ­nio, os eventos publicados e internos, a topologia Kafka, o fluxo da Saga e as decisÃµes registradas nos ADRs. Antes de finalizar o contrato, a implementaÃ§Ã£o de `IngressoLiberadoEvent` foi conferida para confirmar que `pagamentoEventoId` jÃ¡ fazia parte do evento publicado.
+**Aceito:** `docs/contrato.md` passou a documentar `vendas.ingresso.liberado.v1` e `pagamentos.pagamento.recusado.v1`; `docs/arquitetura.md` passou a apresentar o domínio, os eventos publicados e internos, a topologia Kafka, o fluxo da Saga e as decisões registradas nos ADRs. Antes de finalizar o contrato, a implementação de `IngressoLiberadoEvent` foi conferida para confirmar que `pagamentoEventoId` já fazia parte do evento publicado.
