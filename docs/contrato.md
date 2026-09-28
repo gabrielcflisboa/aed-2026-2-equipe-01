@@ -151,21 +151,19 @@ Os dados apresentados são fictícios e servem apenas para demonstrar a estrutur
 
 ---
 
-# Contrato do Evento — Reserva Compensada
+# Contrato do Evento — Ingresso Liberado
 
 ## 9. Identificação do evento
 
-**Tipo do evento:** `vendas.ingresso.reserva-compensada.v1`
+**Tipo do evento:** `vendas.ingresso.liberado.v1`
 
-O evento representa a ocorrência de uma compensação de reserva de ingressos.
+O evento representa o fato de que os ingressos retirados por uma reserva voltaram a ficar disponíveis para venda porque o pagamento da compra foi recusado.
 
-No fluxo atual, a compensação informa ao `servico-ingressos` que as quantidades de ingressos associadas à reserva devem ser devolvidas ao estoque.
+O `IngressoLiberadoEvent` é publicado pelo `servico-vendas` depois que o serviço consome o `PagamentoRecusadoEvent` correspondente à compra e decide liberar a reserva.
 
-Assim como o evento de reserva, esse evento representa um **fato ocorrido no domínio**, e não um comando.
+Esse evento representa um **fato ocorrido no domínio**, e não um comando. O `servico-vendas` informa que a liberação ocorreu; cabe ao `servico-ingressos`, a partir do seu próprio histórico, determinar exatamente quais quantidades foram retiradas pela reserva e devem retornar ao estoque.
 
-O campo `eventoId` identifica a **ocorrência da compensação em si** — uma identidade própria e nova, distinta do `eventoId` da reserva que está sendo compensada, e distinta também do `compraId`. É essa identidade que o consumidor usa para controle de idempotência e deduplicação: se o `eventoId` da compensação reaproveitasse o `eventoId` da reserva original, a tabela de deduplicação (que usa `eventoId` como chave, compartilhada entre reserva e compensação) trataria a compensação como já processada — porque a reserva com aquele mesmo id já foi — e a devolução ao estoque seria ignorada silenciosamente.
-
-> **Observação de modelagem:** o nome `reserva-compensada` será mantido neste contrato para refletir o nome atualmente utilizado pela implementação. O feedback sobre a possibilidade de adotar um nome orientado ao fato de negócio, como `ReservaCancelada` ou `IngressoReservaLiberado`, deve ser tratado como uma decisão de evolução do domínio e do contrato, pois uma alteração desse tipo também impactaria produtor, consumidor, tipo do CloudEvent e tópico Kafka.
+O campo `eventoId` identifica de forma única a ocorrência da liberação e também é utilizado para deduplicação. O campo `reservaEventoId` referencia o `eventoId` do `IngressoReservadoEvent` que está sendo desfeito. O campo `pagamentoEventoId` referencia o `eventoId` do `PagamentoRecusadoEvent` que causou a liberação.
 
 ---
 
@@ -177,30 +175,32 @@ Os atributos do CloudEvents são enviados como headers da mensagem Kafka utiliza
 
 ### 10.1 Payload `data`
 
-| Campo | Tipo | Obrigatório | Descrição |
+| Campo | Tipo | Obrigatório | Significado |
 |---|---|---|---|
-| `eventoId` | `string (UUID)` | Sim | Identificador único da ocorrência da compensação. Identidade própria e nova, não o `eventoId` da reserva original. Utilizado também para controle de idempotência e deduplicação. |
-| `compraId` | `string` | Sim | Identificador da compra cuja reserva está sendo compensada. É por esse campo que o consumidor de negócio (não o de estoque) correlacionaria a compensação com a reserva original. |
-| `evento` | `string` | Sim | Identificador do evento de entretenimento ao qual os ingressos devolvidos pertencem. |
-| `itens` | `array<ItemDoIngressoVO>` | Sim | Lista dos itens de ingresso cujas quantidades devem ser devolvidas ao estoque. |
-| `motivo` | `string` | Sim | Motivo da compensação, em texto livre (ex.: recusa do pagamento pelo gateway externo). |
-| `compensadoEm` | `string (ISO-8601 date-time)` | Sim | Data e hora em que a compensação ocorreu no domínio — não a hora da reserva original, nem a hora em que o broker recebeu a mensagem. |
+| `eventoId` | `string (UUID)` | Sim | Identidade desta liberação e chave de deduplicação. Igual ao `ce_id`. |
+| `compraId` | `string` | Sim | Compra cuja reserva foi liberada. Serve para correlacionar logs; o estoque não usa. |
+| `reservaEventoId` | `string (UUID)` | Sim | `eventoId` do `IngressoReservadoEvent` desfeito. É por ele que o estoque encontra o que a reserva retirou. |
+| `pagamentoEventoId` | `string (UUID)` | Sim | `eventoId` do `PagamentoRecusadoEvent` que causou a liberação. |
+| `evento` | `string` | Sim | Evento de entretenimento. É a chave de partição. |
+| `itens` | `array<ItemDoIngressoVO>` | Sim | Itens da reserva original. O estoque usa somente os setores. |
+| `motivo` | `string` | Sim | Motivo da recusa, em texto livre. |
+| `liberadoEm` | `string (ISO-8601 date-time)` | Sim | Instante em que o `servico-vendas` decidiu liberar. |
 
 ### 10.2 `ItemDoIngressoVO`
 
 Cada item da lista `itens` possui a seguinte estrutura:
 
-| Campo | Tipo | Obrigatório | Descrição |
+| Campo | Tipo | Obrigatório | Significado |
 |---|---|---|---|
 | `setor` | `string` | Sim | Setor do evento ao qual o ingresso pertence. |
-| `quantidade` | `integer` | Sim | Quantidade de ingressos a ser devolvida ao estoque. Deve ser maior que zero. |
+| `quantidade` | `integer` | Sim | Quantidade da reserva original. É informativa para a liberação; o estoque devolve a quantidade efetivamente registrada como retirada pela reserva. |
 | `precoUnitario` | `number` | Sim | Preço unitário do ingresso associado ao item. |
 
-O evento de compensação utiliza a mesma estrutura de `ItemDoIngressoVO` utilizada pelo evento de reserva.
+O `IngressoLiberadoEvent` mantém os itens da reserva para preservar o contexto do fato. A quantidade recebida, entretanto, não é a fonte da verdade para a devolução. O `servico-ingressos` usa `reservaEventoId` para consultar o histórico do estoque e determinar quanto aquela reserva efetivamente retirou de cada setor.
 
 ---
 
-## 11. Exemplo do evento `IngressoReservaCompensadaEvent`
+## 11. Exemplo do evento `IngressoLiberadoEvent`
 
 Exemplo fictício de payload:
 
@@ -208,6 +208,8 @@ Exemplo fictício de payload:
 {
   "eventoId": "660f9511-f3ac-52e5-b827-557766551111",
   "compraId": "compra-1001",
+  "reservaEventoId": "550e8400-e29b-41d4-a716-446655440000",
+  "pagamentoEventoId": "770a0622-04bd-43f6-8938-668877662222",
   "evento": "SHOW-2026-001",
   "itens": [
     {
@@ -222,54 +224,109 @@ Exemplo fictício de payload:
     }
   ],
   "motivo": "pagamento recusado pelo gateway (simulado)",
-  "compensadoEm": "2026-08-18T20:45:00Z"
+  "liberadoEm": "2026-08-18T20:45:00Z"
 }
 ```
 
-Note que o `eventoId` deste exemplo (`660f...`) é diferente do `eventoId` do exemplo da reserva na seção 8 (`550e...`), mesmo os dois se referindo à mesma `compraId` — é exatamente essa a identidade própria que a seção 9 exige.
+O `reservaEventoId` deste exemplo é o `eventoId` da reserva apresentada na seção 8. O `pagamentoEventoId` corresponde ao evento de pagamento recusado que originou a liberação.
 
 Os dados apresentados são fictícios e servem apenas para demonstrar a estrutura do contrato.
 
 ---
 
-## 12. Atributos CloudEvents da compensação
+## 12. Atributos CloudEvents da liberação
 
-O evento de compensação utiliza **CloudEvents 1.0**, no modo **Binary Content Mode**.
+O evento de liberação utiliza **CloudEvents 1.0**, no modo **Binary Content Mode**.
 
 Os atributos são transportados nos headers Kafka:
 
 | Atributo CloudEvents | Header Kafka | Descrição |
 |---|---|---|
 | `specversion` | `ce_specversion` | Versão da especificação CloudEvents utilizada. Deve ser `1.0`. |
-| `id` | `ce_id` | Identificador da ocorrência do evento de compensação. |
-| `source` | `ce_source` | Identifica a origem responsável pela produção do evento. |
-| `type` | `ce_type` | Tipo do evento. Deve ser `vendas.ingresso.reserva-compensada.v1`. |
-| `time` | `ce_time` | Data e hora da ocorrência do fato de negócio, em formato ISO-8601. |
+| `id` | `ce_id` | Identificador da ocorrência da liberação. Corresponde ao `eventoId` do payload. |
+| `source` | `ce_source` | Identifica o `servico-vendas` como origem responsável pela produção do evento. |
+| `type` | `ce_type` | Tipo do evento. Deve ser `vendas.ingresso.liberado.v1`. |
+| `time` | `ce_time` | Instante da liberação, correspondente a `liberadoEm`, em formato ISO-8601. |
 
-O `ce_id` corresponde ao `eventoId` do payload — a identidade própria da compensação, igual ao padrão já usado no evento de reserva (seção 5). Nenhum dos dois é o `eventoId` da reserva original: essa referência é feita pelo `compraId`, não por um id de evento compartilhado.
+A chave Kafka utilizada é o campo `evento`, mantendo os fatos relativos ao mesmo evento de entretenimento na mesma partição.
 
 ---
 
-## 13. Compatibilidade da compensação
+## 13. Compatibilidade e evolução da liberação
 
-O contrato do evento de compensação também adota uma estratégia de compatibilidade **BACKWARD**.
+O tipo `vendas.ingresso.liberado.v1` substitui `vendas.ingresso.reserva-compensada.v1`.
 
-Novos campos podem ser adicionados ao payload desde que não alterem o significado dos campos existentes e que os consumidores continuem capazes de processar eventos produzidos por versões anteriores.
+O nome anterior descrevia o mecanismo de compensação, enquanto o novo tipo descreve o fato de domínio observado pelos consumidores: os ingressos da reserva foram liberados.
 
-Alterações incompatíveis na estrutura ou no significado dos dados devem resultar em uma estratégia explícita de evolução do contrato, podendo envolver uma nova versão do tipo do evento.
+Além da mudança semântica, o novo contrato introduz `reservaEventoId` como referência obrigatória à reserva que precisa ser desfeita e `pagamentoEventoId` como referência ao pagamento recusado que originou a liberação. Essas referências fazem parte da correlação explícita da Saga.
+
+A introdução de campos obrigatórios que os consumidores anteriores não conheciam constitui uma alteração incompatível. Por isso a mudança é representada por um novo tipo de evento, e não por uma alteração silenciosa do contrato `vendas.ingresso.reserva-compensada.v1`.
+
+A evolução do novo contrato continua seguindo a estratégia de compatibilidade **BACKWARD** para mudanças compatíveis.
 
 ---
 
 ## 14. Idempotência
 
-Os consumidores dos eventos devem considerar a possibilidade de recebimento de uma mesma mensagem mais de uma vez.
+Os consumidores devem considerar que uma mesma mensagem pode ser recebida mais de uma vez.
 
-No caso do evento de reserva, o `eventoId` é utilizado como identificador da ocorrência para controle de eventos já processados.
+O `eventoId` identifica a ocorrência da liberação e participa do controle de deduplicação. Uma nova entrega do mesmo `IngressoLiberadoEvent` não deve produzir um novo efeito.
 
-No caso da compensação, o `eventoId` é a identidade própria da ocorrência da compensação — não o `eventoId` da reserva original — e é ele que participa do controle de deduplicação do processamento. As duas tabelas de deduplicação são a mesma (chave `eventoId`, compartilhada entre reserva e compensação), então reaproveitar o `eventoId` da reserva faria a compensação ser descartada como já processada.
+A proteção não se limita ao `eventoId`. O `reservaEventoId` também participa da idempotência no agregado `EstoqueDoSetor`: duas liberações diferentes referentes à mesma reserva devem devolver os ingressos apenas uma vez.
 
-O registro de processamento e o efeito de negócio devem ser realizados de forma consistente, evitando que uma mesma ocorrência seja aplicada repetidamente ao estoque.
+Assim, existem duas situações distintas protegidas pelo modelo:
 
-O reconhecimento (`ack`) da mensagem deve ocorrer somente após o processamento correspondente ter sido concluído com sucesso.
+- a repetição do mesmo evento é reconhecida pelo `eventoId`;
+- eventos de liberação diferentes para a mesma reserva são reconhecidos pelo `reservaEventoId`.
 
-A estratégia de retenção dos registros utilizados para deduplicação deve ser definida separadamente, considerando que a manutenção indefinida desses registros pode provocar crescimento contínuo da estrutura de controle de eventos processados.
+O registro de processamento e o efeito de negócio devem ser realizados de forma consistente. O reconhecimento (`ack`) da mensagem ocorre somente depois que o processamento correspondente é concluído com sucesso.
+
+---
+
+## 15. Contrato do evento `PagamentoRecusadoEvent`
+
+### 15.1 Identificação
+
+**Tipo do evento:** `pagamentos.pagamento.recusado.v1`
+
+O evento representa o fato de que o gateway de pagamento simulado recusou o pagamento associado a uma compra.
+
+Ele é publicado pelo gateway de pagamento simulado, executado no `servico-vendas`, e consumido pelo próprio `servico-vendas` no grupo `servico-vendas`.
+
+A chave Kafka é `compraId`.
+
+### 15.2 Estrutura
+
+| Campo | Tipo | Obrigatório | Significado |
+|---|---|---|---|
+| `eventoId` | `string (UUID)` | Sim | Identidade da ocorrência da recusa. Igual ao `ce_id`. |
+| `compraId` | `string` | Sim | Compra cujo pagamento foi recusado. Também é a chave Kafka. |
+| `motivo` | `string` | Sim | Motivo informado pelo gateway simulado. |
+| `recusadoEm` | `string (ISO-8601 date-time)` | Sim | Instante em que o pagamento foi recusado. |
+
+### 15.3 Atributos CloudEvents
+
+O evento utiliza **CloudEvents 1.0 em Binary Content Mode**.
+
+Os principais atributos são:
+
+| Atributo CloudEvents | Valor |
+|---|---|
+| `specversion` | `1.0` |
+| `id` | mesmo valor de `eventoId` |
+| `source` | `gateway-de-pagamento-simulado` |
+| `type` | `pagamentos.pagamento.recusado.v1` |
+| `time` | mesmo instante de `recusadoEm` |
+
+### 15.4 Exemplo
+
+```json
+{
+  "eventoId": "770a0622-04bd-43f6-8938-668877662222",
+  "compraId": "compra-1001",
+  "motivo": "pagamento recusado pelo gateway (simulado)",
+  "recusadoEm": "2026-08-18T20:44:58Z"
+}
+```
+
+Os dados apresentados são fictícios e servem apenas para demonstrar a estrutura do contrato.
