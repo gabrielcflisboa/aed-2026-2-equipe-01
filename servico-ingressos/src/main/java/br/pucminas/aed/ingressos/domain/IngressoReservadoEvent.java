@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -23,9 +24,12 @@ public final class IngressoReservadoEvent {
             @JsonProperty("itens") List<ItemDoIngressoVO> itens,
             @JsonProperty("reservadoEm") Instant reservadoEm) {
 
-        this.eventoId = eventoId;
-        this.evento = evento;
-        this.itens = List.copyOf(itens);
+        this.eventoId = Objects.requireNonNull(eventoId, "eventoId");
+        this.evento = Objects.requireNonNull(evento, "evento");
+        this.itens = List.copyOf(Objects.requireNonNull(itens, "itens"));
+        if (this.itens.isEmpty()) {
+            throw new IllegalArgumentException("itens vazio");
+        }
         this.reservadoEm = reservadoEm;
     }
 
