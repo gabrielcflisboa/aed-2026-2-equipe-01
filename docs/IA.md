@@ -348,3 +348,35 @@ Arquivos afetados: [`IngressoLiberadoEvent.java`](../servico-vendas/src/main/jav
 **Sugerido:** reescrever as seções do contrato referentes à compensação como contrato de `IngressoLiberadoEvent`, documentar `PagamentoRecusadoEvent`, registrar as correlações `eventoId`, `reservaEventoId` e `pagamentoEventoId` e atualizar o desenho arquitetural com os três tópicos da Saga.
 
 **Aceito:** `docs/contrato.md` passou a documentar `vendas.ingresso.liberado.v1` e `pagamentos.pagamento.recusado.v1`; `docs/arquitetura.md` passou a apresentar o domínio, os eventos publicados e internos, a topologia Kafka, o fluxo da Saga e as decisões registradas nos ADRs. Antes de finalizar o contrato, a implementação de `IngressoLiberadoEvent` foi conferida para confirmar que `pagamentoEventoId` já fazia parte do evento publicado.
+
+### Pedro Assis Corrêa (256357): caminho de falha, reprocessamento e documento de arquitetura
+
+Ferramenta: Claude (Claude Code).
+
+Arquivos afetados: [`ResilienciaConfig.java`](../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/ResilienciaConfig.java), [`ReprocessamentoService.java`](../servico-ingressos/src/main/java/br/pucminas/aed/ingressos/service/ReprocessamentoService.java), [`CaminhoDeFalhaTest.java`](../servico-ingressos/src/test/java/br/pucminas/aed/ingressos/CaminhoDeFalhaTest.java), [`ADR-006-resiliencia.md`](adr/ADR-006-resiliencia.md), [`arquitetura.md`](arquitetura.md), [`contrato.md`](contrato.md) e [`AGENTS.md`](../AGENTS.md).
+
+#### Interação 1: onde fica o ADR da Saga
+
+**Pedido:** montar, a partir das notas de aula de 14/09 e do estado da branch, a lista do que faltava para a entrega de 29/09.
+
+**Sugerido:** criar o ADR da Saga como `docs/adr/ADR-007-...md`, porque o número 006 já estava ocupado pelo ADR de projeções, e criar uma folha de entrega em `docs/entregas/aula-06.md`.
+
+**RECUSADO:** as duas sugestões. O enunciado do projeto final fixa o caminho `docs/adr/ADR-006-resiliencia.md` e avisa que caminho diferente é caminho não encontrado; ele também não pede folha de entrega desta etapa. A ferramenta partiu de um acordo antigo da equipe e não tinha o enunciado. Quando o PDF entrou na conversa, as duas sugestões caíram.
+
+**Aceito:** renumerar o ADR de projeções para ADR-007, sem mudar o texto, e criar o ADR-006 no caminho exigido. O ADR-006 registra essa troca na seção Status.
+
+#### Interação 2: o que a devolutiva mudava no plano
+
+**Pedido:** refazer o plano como lista técnica de arquivos, levando em conta a devolutiva de 03/09.
+
+**Sugerido:** publicar `PagamentoRecusadoEvent` pelo gateway simulado, trocar `IngressoReservaCompensadaEvent` por `IngressoLiberadoEvent` com `reservaEventoId`, e tornar o agregador idempotente, porque reprocessar pela DLQ entregaria o evento de novo a ele. A leitura do código mostrou que a compensação de uma reserva recusada devolvia ingressos de outro comprador.
+
+**Aceito:** as mudanças entraram no plano, que foi dividido entre duas pessoas. A consulta `GET /estoque` ficou com o caminho de falha, porque é por ela que se vê o efeito desfeito.
+
+#### Interação 3: implementação do caminho de falha
+
+**Pedido:** implementar a parte do plano que ficou comigo.
+
+**Sugerido:** `DefaultErrorHandler` com `DeadLetterPublishingRecoverer`, espera exponencial limitada e lista de exceções permanentes; endpoint de reprocessamento por `ce_id`; expurgo diário da deduplicação; e um teste com Kafka embutido que simula o banco fora do ar com `@MockitoSpyBean` no `DeduplicacaoRepository`.
+
+**Aceito:** o código entrou depois de compilado e testado contra as dependências do projeto (Spring Boot 4.1.0, Spring Kafka 4.1, Jackson 3). Os 42 testes do `servico-ingressos` passam, incluindo os quatro cenários do `CaminhoDeFalhaTest`. Durante a implementação, a ferramenta também encontrou este arquivo com a codificação corrompida nos registros das aulas 02 a 05 e restaurou o texto a partir da última versão íntegra.
