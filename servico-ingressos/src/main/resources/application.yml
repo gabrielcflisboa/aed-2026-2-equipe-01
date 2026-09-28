@@ -18,6 +18,17 @@ app:
     # Teto da defasagem das telas, em ms. Ver docs/entregas/aula-05.md.
     intervalo: 1000
 
+  # Numeros justificados no ADR-006.
+  resiliencia:
+    retentativas: 4
+    espera-inicial-ms: 1000
+    multiplicador: 2.0
+    espera-maxima-ms: 8000
+    sufixo-dlq: .dlq
+    retencao-dlq-dias: 30
+    retencao-deduplicacao-dias: 45
+    dlqs-reprocessaveis: vendas.ingresso.reservado.v1.dlq,vendas.ingresso.liberado.v1.dlq,pagamentos.pagamento.recusado.v1.dlq
+
 server:
   port: 8082
 
@@ -42,8 +53,11 @@ spring:
       enable-auto-commit: false
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
     listener:
-      ack-mode: manual
+      ack-mode: manual_immediate
 
 logging:
   level:
