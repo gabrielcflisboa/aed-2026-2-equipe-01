@@ -8,6 +8,7 @@ import br.pucminas.aed.ingressos.domain.IngressoLiberadoEvent;
 import br.pucminas.aed.ingressos.domain.IngressoReservadoEvent;
 import br.pucminas.aed.ingressos.domain.ItemDoIngressoVO;
 import br.pucminas.aed.ingressos.domain.ReservaRecusadaEvent;
+import br.pucminas.aed.ingressos.domain.SituacaoDoEstoqueVO;
 import br.pucminas.aed.ingressos.domain.StreamDoEstoqueVO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,6 +71,12 @@ public class IngressoService {
                 },
                 () -> logger.info("nada a devolver em {} para a reserva {}: ja liberada ou recusada",
                         stream, reservaEventoId));
+    }
+
+    public SituacaoDoEstoqueVO consultar(String evento, String setor) {
+        StreamDoEstoqueVO stream = StreamDoEstoqueVO.de(evento, setor);
+        var log = this.eventoDoEstoqueRepository.lerStream(stream);
+        return SituacaoDoEstoqueVO.de(EstoqueDoSetor.reconstruir(stream, log), log);
     }
 
     private void retirar(IngressoReservadoEvent mensagem, ItemDoIngressoVO item) {
