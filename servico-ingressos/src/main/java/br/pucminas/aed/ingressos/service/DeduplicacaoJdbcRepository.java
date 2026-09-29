@@ -37,4 +37,10 @@ public class DeduplicacaoJdbcRepository implements DeduplicacaoRepository {
         Integer quantidade = this.clienteJdbc.queryForObject(sql, Integer.class, eventoId.toString());
         return quantidade != null && quantidade > 0;
     }
+
+    @Override
+    public int esquecerAntesDe(Instant limite) {
+        String sql = "DELETE FROM evento_processado WHERE processado_em < ?";
+        return this.clienteJdbc.update(sql, OffsetDateTime.ofInstant(limite, ZoneOffset.UTC));
+    }
 }

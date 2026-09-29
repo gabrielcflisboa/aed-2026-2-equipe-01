@@ -1,5 +1,7 @@
 package br.pucminas.aed.ingressos.domain;
 
+import java.util.Objects;
+
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -21,7 +23,10 @@ public final class ItemDoIngressoVO {
     public ItemDoIngressoVO(
             @JsonProperty("setor") String setor,
             @JsonProperty("quantidade") int quantidade) {
-        this.setor = setor;
+        if (quantidade <= 0) {
+            throw new IllegalArgumentException("quantidade deve ser maior que zero");
+        }
+        this.setor = Objects.requireNonNull(setor, "setor");
         this.quantidade = quantidade;
     }
 

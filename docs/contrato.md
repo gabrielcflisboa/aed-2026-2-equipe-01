@@ -330,3 +330,53 @@ Os principais atributos são:
 ```
 
 Os dados apresentados são fictícios e servem apenas para demonstrar a estrutura do contrato.
+
+---
+
+# Contrato das filas de mensagens mortas
+
+## 16. Tópicos de dead letter
+
+### 16.1 Nome e dono
+
+Cada tópico consumido tem uma DLQ, com o nome do tópico original acrescido de `.dlq`. A DLQ é declarada pelo serviço que escreve nela.
+
+| DLQ | Tópico original | Quem escreve | Grupos que podem desistir |
+|---|---|---|---|
+| `vendas.ingresso.reservado.v1.dlq` | `vendas.ingresso.reservado.v1` | `servico-ingressos` | `servico-ingressos` e `servico-ingressos-agregador-reservas` |
+| `vendas.ingresso.liberado.v1.dlq` | `vendas.ingresso.liberado.v1` | `servico-ingressos` | `servico-ingressos` |
+| `pagamentos.pagamento.recusado.v1.dlq` | `pagamentos.pagamento.recusado.v1` | `servico-vendas` | `servico-vendas` |
+
+Cada DLQ tem uma partição e retenção de 30 dias. A partição de destino é escolhida pela chave da mensagem original.
+
+A DLQ é lida por pessoas, e não por serviços. Nenhum consumidor da aplicação assina uma DLQ. A leitura e o reprocessamento passam por `GET /reprocessamentos/retidos` e `POST /reprocessamentos`, no `servico-ingressos`.
+
+### 16.2 Valor e cabeçalhos
+
+A chave e o valor são os mesmos que chegaram ao tópico original. O valor vai como texto UTF-8.
+
+| Cabeçalho | Quem põe | Formato | Significado |
+|---|---|---|---|
+| `ce_specversion`, `ce_id`, `ce_source`, `ce_type`, `ce_time` | publicador original | texto UTF-8 | cópia exata dos atributos CloudEvents. O `ce_id` continua sendo a chave de deduplicação |
+| `kafka_dlt-original-topic` | Spring Kafka | texto UTF-8 | tópico de onde a mensagem veio |
+| `kafka_dlt-original-partition` | Spring Kafka | `int` de 4 bytes, big-endian | partição de origem |
+| `kafka_dlt-original-offset` | Spring Kafka | `long` de 8 bytes, big-endian | offset de origem |
+| `kafka_dlt-original-timestamp` | Spring Kafka | `long` de 8 bytes, big-endian | timestamp que o Kafka atribuiu à mensagem original, em milissegundos |
+| `kafka_dlt-original-consumer-group` | Spring Kafka | texto UTF-8 | grupo que desistiu |
+| `kafka_dlt-exception-fqcn`, `kafka_dlt-exception-cause-fqcn`, `kafka_dlt-exception-message`, `kafka_dlt-exception-stacktrace` | Spring Kafka | texto UTF-8 | a exceção como o Spring a recebeu |
+| `dlq_excecao` | serviço | texto UTF-8 | classe da exceção que causou a falha, sem o embrulho do Spring |
+| `dlq_mensagem` | serviço | texto UTF-8 | mensagem da exceção, com até 500 caracteres |
+| `dlq_classificacao` | serviço | `permanente` ou `transitoria-esgotada` | se a falha é permanente ou se as retentativas acabaram |
+| `dlq_falhou_em` | serviço | ISO-8601 | instante em que a mensagem foi para a DLQ |
+| `dlq_servico` | serviço | texto UTF-8 | serviço que desistiu |
+
+### 16.3 Reprocessamento
+
+Ao reprocessar, o `servico-ingressos` republica a mensagem no tópico indicado por `kafka_dlt-original-topic`, com a mesma chave, o mesmo valor e os mesmos `ce_*`. Os cabeçalhos `kafka_dlt-*` e `dlq_*` saem, e entram dois:
+
+| Cabeçalho | Formato | Significado |
+|---|---|---|
+| `reprocessado_em` | ISO-8601 | instante da republicação |
+| `reprocessado_de` | `<topico-dlq>/<particao>/<offset>` | posição da mensagem na DLQ |
+
+Os consumidores ignoram esses dois cabeçalhos. Como o `ce_id` não muda, um grupo que já tinha processado o evento o descarta pela própria deduplicação.
