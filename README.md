@@ -34,10 +34,12 @@ Detalhes e critérios atendidos em
 Documentos:
 
 - [ADR-002 — domínio do projeto](docs/adr/ADR-002-dominio-do-projeto.md)
-- [ADR-003 — contrato, agregador e compensação](docs/adr/ADR-003-contrato-agregador-e-compensacao.md)
+- [ADR-003 — chave de partição](docs/adr/ADR-003-chave-de-particao.md)
+- [ADR-004 — contrato, agregador e compensação](docs/adr/ADR-004-contrato-agregador-e-compensacao.md)
 - [ADR-005 — event sourcing no estoque](docs/adr/ADR-005-event-sourcing.md)
 - [Contrato do evento `IngressoReservadoEvent`](docs/contrato.md)
 - [Entrega da aula 03](docs/entregas/aula-03.md) — agregador por janela de tempo
+- [Entrega da aula 04](docs/entregas/aula-04.md) — janela e chave de partição
 - [Entrega da aula 05](docs/entregas/aula-05.md) — como rodar e como conferir o log
 - Padrões de pacote, nomenclatura e idempotência em [AGENTS.md](AGENTS.md)
 

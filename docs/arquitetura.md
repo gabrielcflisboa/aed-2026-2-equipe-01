@@ -180,14 +180,17 @@ As decisões arquiteturais que explicam o desenho atual estão registradas nos A
 | ADR | Decisão | Consequência aceita |
 |---|---|---|
 | [ADR-002](adr/ADR-002-dominio-do-projeto.md) | domínio de venda de ingressos | reserva e pagamento são fatos separados, e o sistema convive com um estado intermediário, reservado e não pago |
-| [ADR-003](adr/ADR-003-contrato-agregador-e-compensacao.md) | contrato, agregador por janela e compensação | sem watermark, uma janela da agregação já consultada pode mudar quando chega uma reserva atrasada |
+| [ADR-003](adr/ADR-003-chave-de-particao.md) | chave de partição do tópico de reservas | uma pergunta por CPF em todos os eventos não se responde sem repartir, e um show com volume muito maior que os outros concentra uma partição |
+| [ADR-004](adr/ADR-004-contrato-agregador-e-compensacao.md) | contrato, agregador por janela e compensação | sem watermark, uma janela da agregação já consultada pode mudar quando chega uma reserva atrasada |
 | [ADR-005](adr/ADR-005-event-sourcing.md) | event sourcing no estoque | cada decisão relê o stream do setor, e o log só cresce, sem expurgo nem snapshot |
 | [ADR-006](adr/ADR-006-resiliencia.md) | resiliência e Saga | uma falha transitória segura a partição por até 15 s, e com chave `evento` e 1 partição as vendas de todos os shows param juntas |
 | [ADR-007](adr/ADR-007-projecoes-e-replay.md) | projeções e replay | a disponibilidade exibida pode estar até 1 s atrás do log |
 
 O ADR-002 estabelece a razão para separar reserva, pagamento e compensação: existe uma interação externa entre a retirada inicial e a confirmação financeira, e essa interação pode falhar.
 
-O ADR-003 estabelece o contrato dos eventos e a agregação temporal. A agregação usa o instante do próprio evento e não o instante em que a mensagem chegou ao consumidor, permitindo reconstrução determinística a partir do mesmo histórico.
+O ADR-003 justifica a chave `evento` do tópico de reservas: ela mantém em ordem, numa mesma partição, as reservas que disputam o mesmo estoque, sem exigir repartition topic para a agregação por `(evento, setor)`. Em troca, não responde perguntas por CPF atravessando eventos diferentes.
+
+O ADR-004 estabelece o contrato dos eventos e a agregação temporal. A agregação usa o instante do próprio evento e não o instante em que a mensagem chegou ao consumidor, permitindo reconstrução determinística a partir do mesmo histórico.
 
 O ADR-005 define `EstoqueDoSetor` como agregado e o log append-only como fonte da verdade. A capacidade, a retirada, a recusa e a devolução são fatos do stream. Uma devolução acrescenta um novo fato em vez de apagar ou alterar a retirada anterior.
 

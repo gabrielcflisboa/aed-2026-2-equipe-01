@@ -127,7 +127,8 @@ aed-2026-2-equipe-01/
 ├── README.md
 ├── docs/
 │   ├── adr/ADR-002-dominio-do-projeto.md
-│   ├── adr/ADR-003-contrato-agregador-e-compensacao.md
+│   ├── adr/ADR-003-chave-de-particao.md
+│   ├── adr/ADR-004-contrato-agregador-e-compensacao.md
 │   ├── adr/ADR-005-event-sourcing.md
 │   ├── adr/ADR-006-resiliencia.md
 │   ├── adr/ADR-007-projecoes-e-replay.md
