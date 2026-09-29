@@ -164,6 +164,36 @@ voltou a 100.
 
 ---
 
+## Aula 04
+
+### Amir Gabriel Dantas Santos Andrade (1666035) — chave de partição e janela do agregador
+
+Ferramenta: Claude (Claude Code).
+Arquivos afetados: [`ADR-003-chave-de-particao.md`](adr/ADR-003-chave-de-particao.md) e
+[`aula-04.md`](entregas/aula-04.md).
+
+---
+
+#### Interação 1 — por que a janela do agregador continua sendo tumbling
+
+**Pedido:** revisar, com o vocabulário desta aula (tumbling/hopping/sliding/session), a
+janela de 1 minuto que o agregador da aula 03 já usava.
+
+**Sugerido:** considerar hopping, para dar uma leitura de tendência (média móvel) além do
+total por minuto.
+
+**RECUSADO.** A pergunta que o agregador responde (`GET /agregacao/reservas-por-setor`) é
+"quantos ingressos foram reservados por setor, nesse minuto" — um total de período, não
+uma tendência. Com hopping, a mesma reserva entraria em mais de uma janela, e a soma das
+janelas deixaria de bater com o total de ingressos realmente reservados — o mesmo problema
+que o slide da aula descreve com o faturamento saindo 5 vezes maior que o real, sem erro
+nenhum acusando isso.
+
+**Adotado:** manter tumbling, sem mudança de código. A justificativa comparando as quatro
+janelas ficou registrada em `docs/entregas/aula-04.md`.
+
+---
+
 ## Aula 05
 
 ### Pedro Assis Corrêa (256357): event sourcing do estoque

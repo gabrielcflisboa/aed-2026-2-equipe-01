@@ -1,8 +1,13 @@
-# ADR-003: contrato do evento, agregador por janela de tempo e compensação por pagamento recusado
+# ADR-004: contrato do evento, agregador por janela de tempo e compensação por pagamento recusado
 
 ## Status
 
 Aceita · 2026-09-23 · Equipe 01
+
+Renumerado de ADR-003 para ADR-004 em 29/09/2026, sem mudança de conteúdo, para liberar o
+número 003 ao [ADR de chave de partição](ADR-003-chave-de-particao.md) exigido pela aula 04
+nesse caminho exato. Este documento nunca foi exigido pelo enunciado da aula 03 — foi
+iniciativa da equipe, o que deixou o número livre para o ADR que precisava dele.
 
 Sucede parcialmente o [ADR-002](ADR-002-dominio-do-projeto.md), que escolheu o domínio e
 prometeu um caminho de compensação e algo que valesse reprocessar. Este ADR registra as

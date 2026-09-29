@@ -53,7 +53,7 @@ não muda entre a primeira leitura e um reprocessamento futuro.
 
 Isso é verificado por teste: `reprocessarDoComecoComATabelaZeradaDaOsMesmosTotais` processa
 as reservas, zera a tabela, processa de novo em ordem inversa e compara os totais. Sem zerar
-a tabela o total dobraria, porque o agregador não deduplica (ver ADR-003).
+a tabela o total dobraria, porque o agregador não deduplica (ver ADR-004).
 
 ## 5. Atualização da branch: compensação por pagamento recusado
 
@@ -80,7 +80,7 @@ ficam no log e `disponibilidade_por_setor` volta a `retirados=0`. Testes: 13 no
 
 ## Onde está cada coisa
 
-- Decisões desta etapa: [ADR-003](../adr/ADR-003-contrato-agregador-e-compensacao.md)
+- Decisões desta etapa: [ADR-004](../adr/ADR-004-contrato-agregador-e-compensacao.md)
 - Contrato dos eventos (campos, significado, chave de partição, BACKWARD): [docs/contrato.md](../contrato.md)
 - Padrões de pacote/nomenclatura: [AGENTS.md](../../AGENTS.md)
 - Registro de uso de IA: [docs/IA.md](../IA.md)
@@ -101,7 +101,7 @@ ficam no log e `disponibilidade_por_setor` volta a `retirados=0`. Testes: 13 no
 
 ## Por onde começar a leitura
 
-1. [ADR-003](../adr/ADR-003-contrato-agregador-e-compensacao.md), para as três decisões e o que custaram.
+1. [ADR-004](../adr/ADR-004-contrato-agregador-e-compensacao.md), para as três decisões e o que custaram.
 2. [docs/contrato.md](../contrato.md), para o significado de cada campo e a regra BACKWARD.
 3. `AgregacaoDeReservasService`, para ver a janela calculada a partir de `reservadoEm` e nunca da hora de chegada.
 4. `AgregacaoDeReservasServiceTest`, para ver janela, evento atrasado e reprocessamento rodando.
@@ -129,6 +129,6 @@ processam cada reserva. Testes: `./mvnw.cmd test` em cada serviço.
 |------------------------------------|---|
 | Gabriel Campos Ferreira Lisboa     | Agregador por janela de tempo (`AgregadorDeReservasListener`, `AgregacaoDeReservasService`, `AgregacaoJdbcRepository`, `AgregacaoController`), `reservadoEm` no evento consumido, testes do agregador, escolha do relógio e esta folha de entrega, registro em `IA.md`. |
 | Maria Luísa Lacerda                | `docs/contrato.md`: documentação do contrato do evento `IngressoReservadoEvent`. |
-| Amir Gabriel Dantas Santos Andrade | Atualização da branch: caminho de compensação por pagamento recusado nas duas pontas (`GatewayDePagamentoService`, `VendaCompensacaoCallbackService`, endpoint de compensação, `processarCompensacao`, novo listener), correção e ampliação do contrato do evento de compensação, teste de reprocessamento do agregador, ADR-003 e a seção 5 e os tópicos de leitura desta folha. |
+| Amir Gabriel Dantas Santos Andrade | Atualização da branch: caminho de compensação por pagamento recusado nas duas pontas (`GatewayDePagamentoService`, `VendaCompensacaoCallbackService`, endpoint de compensação, `processarCompensacao`, novo listener), correção e ampliação do contrato do evento de compensação, teste de reprocessamento do agregador, ADR-004 e a seção 5 e os tópicos de leitura desta folha. |
 
 Os demais integrantes da equipe não têm commit registrado nesta etapa.
