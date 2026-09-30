@@ -333,7 +333,7 @@ Arquivos afetados: [`DisponibilidadeProjecaoService.java`](../servico-ingressos/
 - Utilização da IA para traduzir o funcionamento do código Java do Spring/JDBC e guiar a execução dos testes pelo IntelliJ.
 - Refatoração e revisão da lógica da classe `ReconstrucaoService` para garantir que o replay zerasse a tabela e o checkpoint de forma atômica e determinística.
 - Criação do teste de integração `ReconstrucaoDeProjecaoTest.java`, garantindo que o reprocessamento do log reconstrói o estado exato da projeção, corrige edições indevidas no banco e consome novos fatos agendados.
-- Formatação final do arquivo `ADR-006-projecoes-e-replay.md` seguindo rigorosamente a estrutura, tom técnico e padrões dos ADRs anteriores da equipe.
+- Formatação final do arquivo `ADR-007-projecoes-e-replay.md` seguindo rigorosamente a estrutura, tom técnico e padrões dos ADRs anteriores da equipe.
 
 ---
 
