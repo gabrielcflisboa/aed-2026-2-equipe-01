@@ -1,0 +1,68 @@
+app:
+  topico: vendas.ingresso.reservado.v1
+  topico-reservas: vendas.ingresso.reservado.v1
+  topico-liberacoes: vendas.ingresso.liberado.v1
+  # Aula 03: agregador com group.id proprio, no mesmo topico de reservas.
+  agregador:
+    group-id: servico-ingressos-agregador-reservas
+    tamanho-da-janela-em-segundos: 60
+
+  # Vira SetorAbertoEvent no log na primeira subida. Nao e tabela de estoque.
+  abertura:
+    show-pucminas-2026:
+      PISTA: 100
+      CAMAROTE: 20
+      ARQUIBANCADA: 50
+
+  projecoes:
+    # Teto da defasagem das telas, em ms. Ver docs/entregas/aula-05.md.
+    intervalo: 1000
+
+  # Numeros justificados no ADR-006.
+  resiliencia:
+    retentativas: 4
+    espera-inicial-ms: 1000
+    multiplicador: 2.0
+    espera-maxima-ms: 8000
+    sufixo-dlq: .dlq
+    retencao-dlq-dias: 30
+    retencao-deduplicacao-dias: 45
+    dlqs-reprocessaveis: vendas.ingresso.reservado.v1.dlq,vendas.ingresso.liberado.v1.dlq,pagamentos.pagamento.recusado.v1.dlq
+
+server:
+  port: 8082
+
+spring:
+  application:
+    name: servico-ingressos
+
+  datasource:
+    url: jdbc:h2:file:./data/ingressos;AUTO_SERVER=TRUE
+    username: sa
+    password: ""
+
+  sql:
+    init:
+      mode: always
+
+  kafka:
+    bootstrap-servers: localhost:19092
+    consumer:
+      group-id: servico-ingressos
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    listener:
+      ack-mode: manual_immediate
+
+logging:
+  level:
+    root: WARN
+    br.pucminas.aed: INFO
+    org.springframework.boot: INFO
+  pattern:
+    console: "%d{HH:mm:ss} %-5level %-28logger{0} : %msg%n"

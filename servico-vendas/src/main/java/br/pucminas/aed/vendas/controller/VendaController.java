@@ -1,14 +1,16 @@
 package br.pucminas.aed.vendas.controller;
+
 import java.util.Map;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
 import br.pucminas.aed.vendas.domain.LimiteDeIngressosExcedidoException;
 import br.pucminas.aed.vendas.domain.SetorIndisponivelException;
 import br.pucminas.aed.vendas.domain.SolicitacaoDeReservaVO;
@@ -28,14 +30,6 @@ public class VendaController {
     public ResponseEntity<Map<String, String>> reservar(@RequestBody SolicitacaoDeReservaVO solicitacao) {
 
         var evento = vendaService.reservar(solicitacao);
-
-        return ResponseEntity.accepted()
-                .body(Map.of("eventoId", evento.getEventoId(), "compraId", evento.getCompraId()));
-    }
-
-    @PostMapping("/reservas/{compraId}/compensacoes")
-    public ResponseEntity<Map<String, String>> compensar(@PathVariable String compraId) {
-        var evento = vendaService.compensar(compraId);
 
         return ResponseEntity.accepted()
                 .body(Map.of("eventoId", evento.getEventoId(), "compraId", evento.getCompraId()));

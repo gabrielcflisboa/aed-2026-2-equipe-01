@@ -2,123 +2,129 @@
 
 ## Integrantes
 
-| Nome completo                          | Matrícula     |
-| -------------------------------------- | ------------- |
-| Gabriel Campos Ferreira Lisboa (líder) | `255696`      |
-| Maria Luísa Lacerda                    | `257115 `     |
-| Amir Gabriel Dantas Santos Andrade     | `1666035`     |
-| Pedro Assis Corrêa                     | `256357`      |
-| Thiago Felipe dos Santos               | `258087`      |
-| Willian dos Santos Miranda             | `258173`      |
-| `<nome completo>`                      | `<matrícula>` |
+| Nome completo                          | Matrícula |
+| -------------------------------------- | --------- |
+| Gabriel Campos Ferreira Lisboa (líder) | `255696`  |
+| Maria Luísa Lacerda                    | `257115`  |
+| Amir Gabriel Dantas Santos Andrade     | `1666035` |
+| Pedro Assis Corrêa                     | `256357`  |
+| Thiago Felipe dos Santos               | `258087`  |
+| Willian dos Santos Miranda             | `258173`  |
+
+---
 
 ## Domínio
 
-Venda de ingressos para eventos: reserva sujeita a limite por CPF e
-disponibilidade do setor, pagamento externo simulado, e compensação
-(liberação do ingresso) quando a reserva expira ou o pagamento é recusado.
-Detalhes e critérios atendidos em
-[docs/adr/ADR-002-dominio-do-projeto.md](docs/adr/ADR-002-dominio-do-projeto.md).
+O sistema trata da venda de ingressos para eventos, como shows, jogos e peças.
+
+Uma reserva está sujeita a regras de negócio como limite de ingressos por CPF e disponibilidade do setor. Depois que a reserva é aceita e o estoque é retirado, o pagamento é processado por um gateway externo simulado.
+
+Quando o pagamento é recusado, o sistema executa uma Saga coreografada para liberar a reserva e devolver ao estoque exatamente os ingressos que aquela reserva havia retirado.
+
+O estoque é mantido com event sourcing. O estado atual de um setor é reconstruído a partir de um log append-only, preservando o histórico de abertura, retirada e devolução de ingressos.
+
+Detalhes do domínio estão registrados em:
+
+- [ADR-002 — domínio do projeto](docs/adr/ADR-002-dominio-do-projeto.md)
+
+---
 
 ## Estrutura
 
-- `servico-vendas` — publisher: recebe a solicitação de reserva e publica `IngressoReservadoEvent`.
-- `servico-ingressos` — consumer idempotente: aplica o efeito no estoque por setor e trata a compensação.
-  Roda também, no mesmo processo, um segundo consumidor com `group.id` próprio
-  (`AgregadorDeReservasListener`) que agrega reservas por setor/evento em
-  janelas de 1 minuto — ver [docs/entregas/aula-03.md](docs/entregas/aula-03.md).
+### `servico-vendas`
 
-Padrões de pacote, nomenclatura e idempotência em [AGENTS.md](AGENTS.md).
-Contrato do evento em [docs/contrato.md](docs/contrato.md).
+O `servico-vendas`:
 
-## Como rodar (máquina limpa)
+- recebe solicitações de reserva via HTTP;
+- valida limite de ingressos por CPF e regras da venda;
+- publica `IngressoReservadoEvent`;
+- mantém reservas, cotas por CPF e compras liberadas em memória;
+- hospeda o gateway de pagamento simulado;
+- publica `PagamentoRecusadoEvent` quando o pagamento é recusado;
+- consome `PagamentoRecusadoEvent`;
+- localiza a reserva correspondente;
+- devolve a cota do CPF;
+- publica `IngressoLiberadoEvent`;
+- possui política de retentativa e DLQ para falhas no processamento da recusa.
 
-Pré-requisitos: JDK 21, Docker. O Maven é resolvido pelo wrapper (`mvnw`/`mvnw.cmd`), não precisa instalar globalmente.
+O serviço não possui banco de dados próprio.
 
-1. Suba a infraestrutura (Kafka + Kafka UI):
-   ```powershell
-   docker compose up -d
-   ```
-2. Em um terminal, suba o consumidor na porta `8082`:
-   ```powershell
-   cd servico-ingressos
-   ./mvnw.cmd spring-boot:run
-   ```
-3. Em outro terminal, suba o publisher:
-   ```powershell
-   cd servico-vendas
-   ./mvnw.cmd spring-boot:run
-   ```
-4. Dispare uma reserva de ingresso:
-   ```powershell
-   $reserva = @{ compraId = "compra-demo-001"; cpfComprador = "000.000.000-00"; evento = "show-demo"; itens = @(@{ setor = "PISTA"; quantidade = 2; precoUnitario = 180.00 }) } | ConvertTo-Json -Depth 4
-   Invoke-RestMethod http://localhost:8080/vendas/reservas -Method Post -ContentType "application/json" -Body $reserva
-   ```
-5. Para simular a recusa de pagamento e devolver o estoque:
-   ```powershell
-   Invoke-RestMethod http://localhost:8080/vendas/reservas/compra-demo-001/compensacoes -Method Post
-   ```
-6. Acompanhe os dois tópicos e os cabeçalhos `ce_*` no Kafka UI: http://localhost:8081
-7. Consulte a agregação por setor/evento (o `servico-ingressos` já processa as
-   reservas nos dois consumidores assim que sobe, não precisa de passo extra):
-   ```powershell
-   Invoke-RestMethod "http://localhost:8082/agregacao/reservas-por-setor?evento=show-demo"
-   ```
+### `servico-ingressos`
 
-O consumer grava H2 em `./data/ingressos`. O teste
-`IngressoListenerIdempotenciaTest` entrega a mesma reserva e a mesma compensação
-três vezes e verifica que cada uma altera o estoque somente uma vez. O teste
-`AgregacaoDeReservasServiceTest` verifica a soma por janela de 1 minuto e o
-tratamento de eventos fora de ordem de chegada.
+O `servico-ingressos`:
 
-## Como testar manualmente
+- consome `IngressoReservadoEvent`;
+- mantém o estoque por setor usando event sourcing;
+- grava o efeito da reserva como `IngressoRetiradoEvent`;
+- consome `IngressoLiberadoEvent`;
+- usa `reservaEventoId` para localizar no histórico o que aquela reserva realmente retirou;
+- grava a devolução como `IngressoDevolvidoEvent`;
+- trata mensagens duplicadas de forma idempotente;
+- mantém DLQs para reservas e liberações;
+- oferece reprocessamento manual por `ce_id`;
+- oferece consulta HTTP do estado e histórico do estoque;
+- mantém também o agregador de reservas por setor/evento.
 
-Com Kafka, consumer e publisher já em execução nos três terminais acima, execute
-em um quarto PowerShell:
+O event store é persistido no H2.
 
-```powershell
-$compraId = "compra-manual-001"
-$reserva = @{
-   compraId = $compraId
-   cpfComprador = "000.000.000-00"
-   evento = "show-manual"
-   itens = @(
-      @{ setor = "PISTA"; quantidade = 2; precoUnitario = 180.00 }
-   )
-} | ConvertTo-Json -Depth 4
+---
 
-Invoke-RestMethod http://localhost:8080/vendas/reservas `
-   -Method Post `
-   -ContentType "application/json" `
-   -Body $reserva
-```
+## Documentação
 
-O publisher responde `202 Accepted` com `eventoId` e `compraId`. No terminal do
-consumer devem aparecer `Recebendo evento de ingresso reservado` e `Evento de
-ingresso reservado processado`.
+- [ADR-002 — domínio do projeto](docs/adr/ADR-002-dominio-do-projeto.md)
+- [ADR-003 — chave de partição](docs/adr/ADR-003-chave-de-particao.md)
+- [ADR-004 — contrato, agregador e compensação](docs/adr/ADR-004-contrato-agregador-e-compensacao.md)
+- [ADR-005 — event sourcing no estoque](docs/adr/ADR-005-event-sourcing.md)
+- [ADR-006 — resiliência, caminho de falha e Saga](docs/adr/ADR-006-resiliencia.md)
+- [ADR-007 — projeções e replay](docs/adr/ADR-007-projecoes-e-replay.md)
+- [Arquitetura do sistema](docs/arquitetura.md)
+- [Contrato dos eventos](docs/contrato.md)
+- [Apresentação](docs/apresentacao.pdf)
+- [Uso de IA](docs/IA.md)
+- [Entrega da aula 03](docs/entregas/aula-03.md)
+- [Entrega da aula 04](docs/entregas/aula-04.md)
+- [Entrega da aula 05](docs/entregas/aula-05.md)
+- [Padrões obrigatórios do repositório](AGENTS.md)
 
-Simule a recusa do pagamento e confirme a compensação:
+---
 
-```powershell
-Invoke-RestMethod "http://localhost:8080/vendas/reservas/$compraId/compensacoes" `
-   -Method Post
-```
+## Topologia principal
 
-O consumer deve registrar o recebimento e o processamento da compensação. No
-Kafka UI, abra `vendas.ingresso.reservado.v1` e confira os headers
-`ce_specversion`, `ce_id`, `ce_source`, `ce_type` e `ce_time`; o corpo deve
-exibir `reservadoEm` em ISO-8601. A prova da redelivery ocorre com:
+A Saga do pagamento recusado usa três eventos:
 
-```powershell
-cd servico-ingressos
-.\mvnw.cmd test
-```
+| Evento | Tópico | Chave |
+| --- | --- | --- |
+| `IngressoReservadoEvent` | `vendas.ingresso.reservado.v1` | `evento` |
+| `PagamentoRecusadoEvent` | `pagamentos.pagamento.recusado.v1` | `compraId` |
+| `IngressoLiberadoEvent` | `vendas.ingresso.liberado.v1` | `evento` |
 
-O teste `IngressoListenerIdempotenciaTest` entrega a mesma reserva e a mesma
-compensação três vezes e verifica um único débito e uma única devolução.
+O fluxo é:
 
-Para derrubar tudo (inclusive volumes):
+```text
+POST /vendas/reservas
+        |
+        v
+IngressoReservadoEvent
+        |
+        v
+servico-ingressos
+        |
+        v
+IngressoRetiradoEvent
 
-```powershell
-docker compose down -v
-```
+POST /pagamentos/{compraId}/recusas
+        |
+        v
+PagamentoRecusadoEvent
+        |
+        v
+servico-vendas
+        |
+        v
+IngressoLiberadoEvent
+        |
+        v
+servico-ingressos
+        |
+        v
+IngressoDevolvidoEvent
