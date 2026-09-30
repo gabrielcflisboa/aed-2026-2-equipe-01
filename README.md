@@ -75,7 +75,7 @@ Pré-requisitos: JDK 21, Docker. O Maven é resolvido pelo wrapper (`mvnw`/`mvnw
    estoque via evento de compensação — `compra-0001` é o `compraId` do
    `exemplo-reserva.json`):
    ```powershell
-   curl -X POST http://localhost:8080/vendas/reservas/compra-0001/compensacoes
+   curl.exe -X POST http://localhost:8080/pagamentos/compra-0001/recusas
    ```
 
 No arranque, o `servico-ingressos` abre os setores de `app.abertura` gravando um
@@ -200,7 +200,7 @@ com o log do estoque e a memória de deduplicação.
 
 ```powershell
 cd servico-vendas;    ./mvnw.cmd test   # 19 testes
-cd servico-ingressos; ./mvnw.cmd test   # 42 testes
+cd servico-ingressos; ./mvnw.cmd test   # 44 testes
 ```
 
 O `CaminhoDeFalhaTest` sobe um Kafka embutido e prova o caminho de falha de ponta a ponta:
