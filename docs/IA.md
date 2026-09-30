@@ -379,6 +379,31 @@ Arquivos afetados: [`IngressoLiberadoEvent.java`](../servico-vendas/src/main/jav
 
 **Aceito:** `docs/contrato.md` passou a documentar `vendas.ingresso.liberado.v1` e `pagamentos.pagamento.recusado.v1`; `docs/arquitetura.md` passou a apresentar o domínio, os eventos publicados e internos, a topologia Kafka, o fluxo da Saga e as decisões registradas nos ADRs. Antes de finalizar o contrato, a implementação de `IngressoLiberadoEvent` foi conferida para confirmar que `pagamentoEventoId` já fazia parte do evento publicado.
 
+#### Interação 5: teste de falha, DLQ e reprocessamento da liberação
+
+**Pedido:** implementar o cenário em que `IngressoLiberadoEvent` chega antes do
+`IngressoReservadoEvent`, cobrindo tanto a recuperação por retentativa quanto
+o esgotamento das tentativas seguido de DLQ e reprocessamento idempotente.
+
+**Sugerido:** criar `LiberacaoQueFalhaTest` com Kafka embarcado, H2 isolado,
+retentativas reduzidas para o teste e dois cenários. No primeiro, publicar a
+liberação antes da reserva e fazer a reserva chegar dentro da janela de
+retentativa. No segundo, deixar as retentativas se esgotarem, verificar
+`ReservaAindaNaoProcessadaException` na DLQ, publicar a reserva e reprocessar
+o mesmo `ce_id` duas vezes.
+
+**Ajustado durante a implementação:** a primeira versão do teste tentou usar
+`EventoDoEstoqueRepository.ler(...)`, mas a interface atual expõe
+`lerStream(...)`. O teste foi ajustado para utilizar a API real do repositório.
+
+**Aceito:** no primeiro cenário, a liberação é concluída em uma retentativa e
+não chega à DLQ. No segundo, a mensagem chega a
+`vendas.ingresso.liberado.v1.dlq` com classificação
+`transitoria-esgotada` e `ReservaAindaNaoProcessadaException`; depois que a
+reserva é processada, o reprocessamento grava um único
+`IngressoDevolvidoEvent`. Reprocessar novamente o mesmo `ce_id` não duplica a
+devolução. A suíte final do `servico-ingressos` passou com 44 testes.
+
 ### Pedro Assis Corrêa (256357): caminho de falha, reprocessamento e documento de arquitetura
 
 Ferramenta: Claude (Claude Code).
@@ -409,4 +434,4 @@ Arquivos afetados: [`ResilienciaConfig.java`](../servico-ingressos/src/main/java
 
 **Sugerido:** `DefaultErrorHandler` com `DeadLetterPublishingRecoverer`, espera exponencial limitada e lista de exceções permanentes; endpoint de reprocessamento por `ce_id`; expurgo diário da deduplicação; e um teste com Kafka embutido que simula o banco fora do ar com `@MockitoSpyBean` no `DeduplicacaoRepository`.
 
-**Aceito:** o código entrou depois de compilado e testado contra as dependências do projeto (Spring Boot 4.1.0, Spring Kafka 4.1, Jackson 3). Os 42 testes do `servico-ingressos` passam, incluindo os quatro cenários do `CaminhoDeFalhaTest`. Durante a implementação, a ferramenta também encontrou este arquivo com a codificação corrompida nos registros das aulas 02 a 05 e restaurou o texto a partir da última versão íntegra.
+**Aceito:** o código entrou depois de compilado e testado contra as dependências do projeto (Spring Boot 4.1.0, Spring Kafka 4.1, Jackson 3). Os 44 testes do `servico-ingressos` passam, incluindo os quatro cenários do `CaminhoDeFalhaTest`. Durante a implementação, a ferramenta também encontrou este arquivo com a codificação corrompida nos registros das aulas 02 a 05 e restaurou o texto a partir da última versão íntegra.
